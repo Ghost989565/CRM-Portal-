@@ -1,5 +1,32 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Create a chainable mock query builder
+function createMockQueryBuilder() {
+  const mockResult = { data: [], error: null }
+  const builder: any = {
+    select: () => builder,
+    insert: () => builder,
+    update: () => builder,
+    delete: () => builder,
+    eq: () => builder,
+    neq: () => builder,
+    gt: () => builder,
+    gte: () => builder,
+    lt: () => builder,
+    lte: () => builder,
+    like: () => builder,
+    ilike: () => builder,
+    is: () => builder,
+    in: () => builder,
+    order: () => builder,
+    limit: () => builder,
+    single: () => Promise.resolve(mockResult),
+    maybeSingle: () => Promise.resolve(mockResult),
+    then: (resolve: any) => resolve(mockResult),
+  }
+  return builder
+}
+
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -15,12 +42,7 @@ export function createClient() {
         signOut: async () => ({ error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       },
-      from: () => ({
-        select: () => ({ data: [], error: null, order: () => ({ data: [], error: null, limit: () => ({ data: [], error: null }) }) }),
-        insert: () => ({ data: null, error: { message: 'Supabase not configured' } }),
-        update: () => ({ data: null, error: { message: 'Supabase not configured' } }),
-        delete: () => ({ data: null, error: { message: 'Supabase not configured' } }),
-      }),
+      from: () => createMockQueryBuilder(),
     } as any
   }
 
