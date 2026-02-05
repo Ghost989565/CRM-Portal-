@@ -23,29 +23,45 @@ import type { Client } from "@/lib/crm-data"
 
 // Fetch appointments from Supabase
 async function fetchAppointments() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("appointments")
-    .select("*, clients(first_name, last_name)")
-    .gte("start_time", new Date().toISOString())
-    .order("start_time", { ascending: true })
-    .limit(5)
-  
-  if (error) throw error
-  return data || []
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("*, clients(first_name, last_name)")
+      .gte("start_time", new Date().toISOString())
+      .order("start_time", { ascending: true })
+      .limit(5)
+    
+    if (error) {
+      console.error("[v0] Error fetching appointments:", error)
+      return []
+    }
+    return data || []
+  } catch (err) {
+    console.error("[v0] Exception fetching appointments:", err)
+    return []
+  }
 }
 
 // Fetch recent contact logs
 async function fetchRecentContacts() {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("contact_logs")
-    .select("*, clients(first_name, last_name)")
-    .order("created_at", { ascending: false })
-    .limit(5)
-  
-  if (error) throw error
-  return data || []
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("contact_logs")
+      .select("*, clients(first_name, last_name)")
+      .order("created_at", { ascending: false })
+      .limit(5)
+    
+    if (error) {
+      console.error("[v0] Error fetching contacts:", error)
+      return []
+    }
+    return data || []
+  } catch (err) {
+    console.error("[v0] Exception fetching contacts:", err)
+    return []
+  }
 }
 
 export function PipelineCard() {

@@ -45,19 +45,24 @@ export function transformDbClient(dbClient: DbClient): Client {
 }
 
 async function fetchClients(): Promise<Client[]> {
-  const supabase = createClient()
-  
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false })
+  try {
+    const supabase = createClient()
+    
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching clients:", error)
-    throw new Error(error.message)
+    if (error) {
+      console.error("[v0] Error fetching clients:", error)
+      return []
+    }
+
+    return (data || []).map(transformDbClient)
+  } catch (err) {
+    console.error("[v0] Exception fetching clients:", err)
+    return []
   }
-
-  return (data || []).map(transformDbClient)
 }
 
 export function useClients() {

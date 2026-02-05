@@ -1,8 +1,13 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-// Create a chainable mock query builder
+// Create a chainable mock query builder that behaves like a Promise
 function createMockQueryBuilder() {
   const mockResult = { data: [], error: null }
+  
+  // Create a Promise that resolves to mockResult
+  const promise = Promise.resolve(mockResult)
+  
+  // Create builder with all chainable methods
   const builder: any = {
     select: () => builder,
     insert: () => builder,
@@ -20,9 +25,12 @@ function createMockQueryBuilder() {
     in: () => builder,
     order: () => builder,
     limit: () => builder,
-    single: () => Promise.resolve(mockResult),
-    maybeSingle: () => Promise.resolve(mockResult),
-    then: (resolve: any) => resolve(mockResult),
+    single: () => promise,
+    maybeSingle: () => promise,
+    // Make the builder thenable (works with await)
+    then: (onFulfilled: any, onRejected?: any) => promise.then(onFulfilled, onRejected),
+    catch: (onRejected: any) => promise.catch(onRejected),
+    finally: (onFinally: any) => promise.finally(onFinally),
   }
   return builder
 }

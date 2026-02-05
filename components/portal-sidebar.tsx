@@ -8,7 +8,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+
+// Define a minimal user type to avoid importing from @supabase/supabase-js
+interface AuthUser {
+  id: string
+  email?: string
+  user_metadata?: {
+    first_name?: string
+    last_name?: string
+  }
+}
 
 const navigation = [
   { name: "Dashboard", href: "/portal", icon: LayoutDashboard },
@@ -21,25 +30,31 @@ const navigation = [
 
 export function PortalSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
   useEffect(() => {
-    const supabase = createClient()
-    
-    // Get initial user
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
-    })
+    try {
+      const supabase = createClient()
+      
+      // Get initial user
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        setUser(user as AuthUser | null)
+      }).catch(() => {
+        // Ignore errors - user just won't be logged in
+      })
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user as AuthUser | null ?? null)
+      })
 
-    return () => subscription.unsubscribe()
+      return () => subscription.unsubscribe()
+    } catch {
+      // Supabase not configured - continue without auth
+    }
   }, [])
 
   const handleSignOut = async () => {

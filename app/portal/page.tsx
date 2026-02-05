@@ -14,14 +14,21 @@ import { createClient } from "@/lib/supabase/client"
 export default function PortalDashboard() {
   const [userName, setUserName] = useState("")
 
+  console.log("[v0] PortalDashboard rendering")
+
   useEffect(() => {
+    console.log("[v0] PortalDashboard useEffect running")
     const supabase = createClient()
+    console.log("[v0] Supabase client created:", !!supabase)
     supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log("[v0] Got user:", user?.email || "no user")
       if (user?.user_metadata?.first_name) {
         setUserName(user.user_metadata.first_name)
       } else if (user?.email) {
         setUserName(user.email.split("@")[0])
       }
+    }).catch((err: Error) => {
+      console.log("[v0] Error getting user:", err)
     })
   }, [])
 
