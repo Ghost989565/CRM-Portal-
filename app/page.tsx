@@ -2,26 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 
 export default function HomePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        router.push("/portal")
-      } else {
-        router.push("/auth/login")
-      }
-      setIsLoading(false)
-    }
-    
-    checkAuth()
+    // Always redirect to portal - middleware will handle auth when Supabase is configured
+    router.push("/portal")
+    setIsLoading(false)
   }, [router])
 
   if (!isLoading) return null
