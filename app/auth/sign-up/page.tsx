@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -16,9 +16,19 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [referralCode, setReferralCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Get referral code from URL if present
+  useEffect(() => {
+    const ref = searchParams.get("ref")
+    if (ref) {
+      setReferralCode(ref)
+    }
+  }, [searchParams])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,6 +56,7 @@ export default function SignUpPage() {
         data: {
           first_name: firstName,
           last_name: lastName,
+          referred_by_code: referralCode || undefined,
         },
       },
     })
@@ -146,6 +157,20 @@ export default function SignUpPage() {
                   required
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white/40"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="referralCode" className="text-white/90">Referral Code (Optional)</Label>
+                <Input
+                  id="referralCode"
+                  type="text"
+                  placeholder="Enter referral code"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-white/40 uppercase tracking-wider"
+                />
+                <p className="text-xs text-white/40">
+                  If someone referred you, enter their code here
+                </p>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">

@@ -7,11 +7,12 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X, LogOut } from "lucide-react"
+import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X, LogOut, Network } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
 
 const navigation = [
   { name: "Dashboard", href: "/portal", icon: LayoutDashboard },
+  { name: "My Team", href: "/portal/team", icon: Network },
   { name: "Calendars", href: "/portal/calendars", icon: Calendar },
   { name: "Clients", href: "/portal/clients", icon: Users },
   { name: "Scripts", href: "/portal/scripts", icon: FileText },

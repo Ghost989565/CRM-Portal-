@@ -5,8 +5,29 @@ export interface Profile {
   email: string | null
   role: string
   avatar_url: string | null
+  referred_by: string | null
+  referral_code: string | null
+  title: string | null
+  team_name: string | null
   created_at: string
   updated_at: string
+}
+
+export interface TeamMember {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  title: string | null
+  avatar_url: string | null
+  referred_by?: string | null
+  depth: number
+}
+
+export interface TeamStats {
+  direct_recruits: number
+  total_team_size: number
+  team_depth: number
 }
 
 export interface Client {
