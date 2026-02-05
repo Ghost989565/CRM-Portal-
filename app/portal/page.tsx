@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { PortalLayout } from "@/components/portal-layout"
 import {
   PipelineCard,
@@ -6,15 +9,31 @@ import {
   RecentContactsCard,
   QuickLinksCard,
 } from "@/components/dashboard-cards"
+import { createClient } from "@/lib/supabase/client"
 
 export default function PortalDashboard() {
+  const [userName, setUserName] = useState("")
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.first_name) {
+        setUserName(user.user_metadata.first_name)
+      } else if (user?.email) {
+        setUserName(user.email.split("@")[0])
+      }
+    })
+  }, [])
+
   return (
     <PortalLayout>
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's what's happening with your clients.</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            {userName ? `Welcome back, ${userName}!` : "Dashboard"}
+          </h1>
+          <p className="text-muted-foreground">Here&apos;s what&apos;s happening with your clients today.</p>
         </div>
 
         {/* Dashboard Grid */}

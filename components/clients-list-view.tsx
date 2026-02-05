@@ -8,42 +8,30 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Phone, Mail, MessageSquare, MoreHorizontal, Search, Filter, Users } from "lucide-react"
-import { mockClients, statusOptions, type Client } from "@/lib/crm-data"
+import { Phone, Mail, MessageSquare, MoreHorizontal, Search, Filter, Users, Loader2 } from "lucide-react"
+import { statusOptions, type Client } from "@/lib/crm-data"
+import { logContact } from "@/lib/actions/clients"
 
 interface ClientsListViewProps {
+  clients: Client[]
+  isLoading?: boolean
   onClientSelect: (client: Client) => void
+  onRefresh?: () => void
 }
 
-export function ClientsListView({ onClientSelect }: ClientsListViewProps) {
-  const [clients, setClients] = useState(mockClients)
+export function ClientsListView({ clients, isLoading, onClientSelect, onRefresh }: ClientsListViewProps) {
   const [selectedClients, setSelectedClients] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("All")
   const [sortField, setSortField] = useState<keyof Client>("lastName")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
-  const handleAction = (action: string, client: Client) => {
-    console.log(`${action} action for ${client.firstName} ${client.lastName}`)
-
-    // Auto-log contact
-    const newContactLog = {
-      id: `c${Date.now()}`,
-      type: action as "call" | "text" | "email",
-      timestamp: new Date().toLocaleString(),
-      agent: "John Doe",
-      outcome: `${action} initiated`,
-      notes: `${action} action performed from client list`,
-    }
-
-    // Update client with new contact log
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === client.id
-          ? { ...c, contactHistory: [newContactLog, ...c.contactHistory], lastContact: newContactLog.timestamp }
-          : c,
-      ),
-    )
+  const handleAction = async (action: string, client: Client) => {
+    // Log contact to database
+    await logContact(client.id, action as "call" | "text" | "email" | "meeting")
+    
+    // Refresh data
+    onRefresh?.()
 
     // Perform the actual action
     if (action === "call") {
@@ -271,7 +259,16 @@ export function ClientsListView({ onClientSelect }: ClientsListViewProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredClients.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-12">
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Loading clients...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredClients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center">

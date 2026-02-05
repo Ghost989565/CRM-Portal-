@@ -1,26 +1,19 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Phone, Mail, MessageSquare, Calendar } from "lucide-react"
-import { mockClients, statusOptions, type Client, type ClientStatus } from "@/lib/crm-data"
+import { Phone, Mail, MessageSquare, Calendar, Loader2 } from "lucide-react"
+import { statusOptions, type Client, type ClientStatus } from "@/lib/crm-data"
 
 interface ClientsBoardViewProps {
+  clients: Client[]
+  isLoading?: boolean
   onClientSelect: (client: Client) => void
 }
 
-export function ClientsBoardView({ onClientSelect }: ClientsBoardViewProps) {
-  const [clients, setClients] = useState(mockClients)
-
-  const handleStatusChange = (clientId: string, newStatus: ClientStatus) => {
-    setClients((prev) => prev.map((client) => (client.id === clientId ? { ...client, status: newStatus } : client)))
-
-    // Here you would typically send the update to your backend
-    console.log(`Client ${clientId} moved to ${newStatus}`)
-  }
+export function ClientsBoardView({ clients, isLoading, onClientSelect }: ClientsBoardViewProps) {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -36,6 +29,14 @@ export function ClientsBoardView({ onClientSelect }: ClientsBoardViewProps) {
 
   const getClientsByStatus = (status: ClientStatus) => {
     return clients.filter((client) => client.status === status)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (

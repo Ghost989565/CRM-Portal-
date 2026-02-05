@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X } from "lucide-react"
+import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X, LogOut } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
+import type { User } from "@supabase/supabase-js"
 
 const navigation = [
   { name: "Dashboard", href: "/portal", icon: LayoutDashboard },
@@ -19,7 +21,42 @@ const navigation = [
 
 export function PortalSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    setIsLoading(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/auth/login')
+    router.refresh()
+  }
+
+  const userInitials = user?.user_metadata?.first_name && user?.user_metadata?.last_name
+    ? `${user.user_metadata.first_name[0]}${user.user_metadata.last_name[0]}`.toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || '?'
+
+  const userName = user?.user_metadata?.first_name && user?.user_metadata?.last_name
+    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+    : user?.email?.split('@')[0] || 'Agent'
 
   return (
     <>
@@ -55,11 +92,13 @@ export function PortalSidebar() {
           <div className="p-6 border-b border-sidebar-border">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground"></AvatarFallback>
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">
+                  {userInitials}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate"></p>
-                <p className="text-xs text-sidebar-foreground/60 truncate"></p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email || ''}</p>
               </div>
             </div>
           </div>
@@ -86,6 +125,19 @@ export function PortalSidebar() {
               )
             })}
           </nav>
+
+          {/* Logout button */}
+          <div className="p-4 border-t border-sidebar-border">
+            <Button
+              variant="ghost"
+              onClick={handleSignOut}
+              disabled={isLoading}
+              className="w-full justify-start text-sidebar-foreground hover:bg-white/5 hover:text-white"
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              {isLoading ? 'Signing out...' : 'Sign out'}
+            </Button>
+          </div>
         </div>
       </div>
 
