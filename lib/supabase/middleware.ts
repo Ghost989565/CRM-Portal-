@@ -46,15 +46,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // NOTE: Authentication protection is currently disabled for easier development.
+  // To enable auth protection, uncomment the code below:
+  
   // Protect portal routes - redirect to login if not authenticated
-  if (
-    request.nextUrl.pathname.startsWith('/portal') &&
-    !user
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
-  }
+  // if (
+  //   request.nextUrl.pathname.startsWith('/portal') &&
+  //   !user
+  // ) {
+  //   const url = request.nextUrl.clone()
+  //   url.pathname = '/auth/login'
+  //   return NextResponse.redirect(url)
+  // }
 
   // Redirect authenticated users away from auth pages
   if (
