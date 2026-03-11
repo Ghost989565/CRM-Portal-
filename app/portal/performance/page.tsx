@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { PortalLayout } from "@/components/portal-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -7,17 +8,63 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PerformanceMetricCard } from "@/components/performance-metric-card"
 import { PerformanceCharts } from "@/components/performance-charts"
-import { TrendingUp, Target, Users, DollarSign, Phone, Calendar, Download, Settings } from "lucide-react"
-import { mockMetrics } from "@/lib/performance-data"
+import { useClients } from "@/contexts/clients-context"
+import { useContactLogs } from "@/contexts/contact-logs-context"
+import { buildChartData, buildPerformanceMetrics, type CalendarEventSummary } from "@/lib/portal-insights"
+import { TrendingUp, Target, Users, DollarSign, Calendar, Download, Settings } from "lucide-react"
 
 export default function PerformancePage() {
-  const activityMetrics = mockMetrics.filter((m) => m.category === "activity")
-  const recruitingMetrics = mockMetrics.filter((m) => m.category === "recruiting")
-  const retentionMetrics = mockMetrics.filter((m) => m.category === "retention")
+  const { clients, isLoading: clientsLoading } = useClients()
+  const { recentContacts, getClientContactHistory } = useContactLogs()
+  const [events, setEvents] = useState<CalendarEventSummary[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
 
-  const totalTarget = mockMetrics.reduce((sum, m) => sum + m.target, 0)
-  const totalActual = mockMetrics.reduce((sum, m) => sum + m.value, 0)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/calendar/events")
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (cancelled) return
+        if (ok && Array.isArray(data?.events)) {
+          setEvents(data.events)
+          return
+        }
+        setEvents([])
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([])
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const allLogs = useMemo(() => {
+    const entries = clients.flatMap((client) => getClientContactHistory(client.id))
+    if (entries.length > 0) return entries
+    return recentContacts
+  }, [clients, getClientContactHistory, recentContacts])
+
+  const metrics = useMemo(() => buildPerformanceMetrics(clients, allLogs, events), [clients, allLogs, events])
+  const { chartData, activityData, comparisonData } = useMemo(
+    () => buildChartData(clients, allLogs, events),
+    [clients, allLogs, events]
+  )
+
+  const activityMetrics = metrics.filter((m) => m.category === "activity")
+  const salesMetrics = metrics.filter((m) => m.category === "sales")
+  const retentionMetrics = metrics.filter((m) => m.category === "retention")
+
+  const totalTarget = metrics.reduce((sum, metric) => sum + metric.target, 0)
+  const totalActual = metrics.reduce((sum, metric) => sum + metric.value, 0)
   const overallProgress = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0
+  const monthlyAppointments = metrics.find((metric) => metric.id === "appointments-set")?.value ?? 0
+  const activePipeline = metrics.find((metric) => metric.id === "active-pipeline")?.value ?? 0
+  const closeRate = metrics.find((metric) => metric.id === "close-rate")?.value ?? 0
+  const loading = clientsLoading || eventsLoading
 
   return (
     <PortalLayout>
@@ -25,7 +72,7 @@ export default function PerformancePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Performance Analytics</h1>
-            <p className="text-muted-foreground">Track your KPIs, goals, and business metrics</p>
+            <p className="text-muted-foreground">Track CRM activity, appointments, and close-rate trends across the portal</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="flex items-center gap-2 bg-transparent">
@@ -39,7 +86,6 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        {/* Overall Performance Summary */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -48,7 +94,7 @@ export default function PerformancePage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{overallProgress}%</div>
-              <p className="text-xs text-muted-foreground">of all targets</p>
+              <p className="text-xs text-muted-foreground">of current tracked targets</p>
             </CardContent>
           </Card>
 
@@ -58,30 +104,30 @@ export default function PerformancePage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">apps submitted</p>
+              <div className="text-2xl font-bold">{monthlyAppointments}</div>
+              <p className="text-xs text-muted-foreground">appointments scheduled</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">Close Rate</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$0</div>
-              <p className="text-xs text-muted-foreground">premium volume</p>
+              <div className="text-2xl font-bold">{closeRate}%</div>
+              <p className="text-xs text-muted-foreground">won opportunities</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Team Growth</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Pipeline</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">team members</p>
+              <div className="text-2xl font-bold">{activePipeline}</div>
+              <p className="text-xs text-muted-foreground">clients still in play</p>
             </CardContent>
           </Card>
         </div>
@@ -94,34 +140,36 @@ export default function PerformancePage() {
           </TabsList>
 
           <TabsContent value="metrics" className="space-y-6">
-            {/* Activity Metrics */}
-            {activityMetrics.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold">Activity Metrics</h2>
-                  <Badge variant="outline">{activityMetrics.length} metrics</Badge>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {activityMetrics.map((metric) => (
-                    <PerformanceMetricCard key={metric.id} metric={metric} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Recruiting & Retention */}
-            {(recruitingMetrics.length > 0 || retentionMetrics.length > 0) && (
-              <div className="grid gap-6 md:grid-cols-2">
-                {recruitingMetrics.length > 0 && (
+            {loading ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">Loading performance data...</CardContent>
+              </Card>
+            ) : (
+              <>
+                {salesMetrics.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" />
-                      <h2 className="text-xl font-semibold">Recruiting</h2>
-                      <Badge variant="outline">{recruitingMetrics.length} metrics</Badge>
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      <h2 className="text-xl font-semibold">Sales Metrics</h2>
+                      <Badge variant="outline">{salesMetrics.length} metrics</Badge>
                     </div>
-                    <div className="space-y-4">
-                      {recruitingMetrics.map((metric) => (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {salesMetrics.map((metric) => (
+                        <PerformanceMetricCard key={metric.id} metric={metric} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activityMetrics.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <h2 className="text-xl font-semibold">Activity Metrics</h2>
+                      <Badge variant="outline">{activityMetrics.length} metrics</Badge>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {activityMetrics.map((metric) => (
                         <PerformanceMetricCard key={metric.id} metric={metric} />
                       ))}
                     </div>
@@ -131,50 +179,55 @@ export default function PerformancePage() {
                 {retentionMetrics.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-primary" />
-                      <h2 className="text-xl font-semibold">Retention</h2>
-                      <Badge variant="outline">{retentionMetrics.length} metric</Badge>
+                      <Users className="h-5 w-5 text-primary" />
+                      <h2 className="text-xl font-semibold">Retention Metrics</h2>
+                      <Badge variant="outline">{retentionMetrics.length} metrics</Badge>
                     </div>
-                    <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       {retentionMetrics.map((metric) => (
                         <PerformanceMetricCard key={metric.id} metric={metric} />
                       ))}
                     </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {activityMetrics.length === 0 && recruitingMetrics.length === 0 && retentionMetrics.length === 0 && (
-              <div className="text-center py-12">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Metrics Added</h3>
-                <p className="text-muted-foreground">Add performance metrics to track your KPIs and goals</p>
-              </div>
+                {metrics.length === 0 && (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Target className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                      <h3 className="mb-2 text-lg font-medium">No activity yet</h3>
+                      <p className="text-muted-foreground">Add clients, log touches, or create meetings to populate analytics.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
           </TabsContent>
 
           <TabsContent value="charts">
-            <PerformanceCharts />
+            <PerformanceCharts chartData={chartData} activityData={activityData} comparisonData={comparisonData} />
           </TabsContent>
 
           <TabsContent value="goals" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Goal Setting & Tracking</CardTitle>
-                <CardDescription>Set and monitor your performance goals</CardDescription>
+                <CardTitle>Goal Tracking Snapshot</CardTitle>
+                <CardDescription>Current system-generated targets based on your recent activity</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center py-8">
-                    <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Goal Management</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Set monthly, quarterly, and yearly goals to track your progress
-                    </p>
-                    <Button>Set New Goals</Button>
+              <CardContent className="space-y-4">
+                {metrics.map((metric) => (
+                  <div key={metric.id} className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <p className="font-medium">{metric.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {metric.value} of {metric.target} this {metric.period}
+                      </p>
+                    </div>
+                    <Badge variant={metric.value >= metric.target ? "default" : "outline"}>
+                      {Math.round((metric.value / metric.target) * 100) || 0}% complete
+                    </Badge>
                   </div>
-                </div>
+                ))}
               </CardContent>
             </Card>
           </TabsContent>

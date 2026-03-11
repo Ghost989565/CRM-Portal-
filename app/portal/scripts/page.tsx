@@ -45,6 +45,7 @@ export default function ScriptsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedScript, setSelectedScript] = useState<Script | null>(null)
+  const [editingScript, setEditingScript] = useState<Script | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [sendToClientsOpen, setSendToClientsOpen] = useState(false)
@@ -80,6 +81,44 @@ export default function ScriptsPage() {
   }, [scripts])
 
   const handleAddScript = async (script: Script) => {
+    if (editingScript) {
+      try {
+        const res = await fetch(`/api/scripts/${editingScript.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: script.title,
+            category: script.category,
+            content: script.content,
+            tags: script.tags,
+          }),
+        })
+        if (res.ok) {
+          const { script: updated } = await res.json()
+          setScripts((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+          setSelectedScript((prev) => (prev?.id === updated.id ? updated : prev))
+          setEditingScript(null)
+          return
+        }
+      } catch {
+        // fall through to local
+      }
+      setScripts((prev) =>
+        prev.map((item) =>
+          item.id === editingScript.id
+            ? { ...item, ...script, id: editingScript.id, updatedAt: new Date().toISOString() }
+            : item
+        )
+      )
+      setSelectedScript((prev) =>
+        prev?.id === editingScript.id
+          ? { ...prev, ...script, id: editingScript.id, updatedAt: new Date().toISOString() }
+          : prev
+      )
+      setEditingScript(null)
+      return
+    }
+
     try {
       const res = await fetch("/api/scripts", {
         method: "POST",
@@ -130,14 +169,43 @@ export default function ScriptsPage() {
   }
 
   const handleEditScript = (script: Script) => {
-    // TODO: Implement edit functionality
-    console.log("Edit script:", script.id)
+    setEditingScript(script)
+    setAddDialogOpen(true)
   }
 
-  const handleCopyScript = (script: Script) => {
-    navigator.clipboard.writeText(script.content)
-    // TODO: Show toast notification
-    console.log("Copied script:", script.title)
+  const incrementUsage = useCallback(async (script: Script) => {
+    try {
+      const res = await fetch(`/api/scripts/${script.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incrementUsage: true }),
+      })
+      if (res.ok) {
+        const { script: updated } = await res.json()
+        setScripts((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+        setSelectedScript((prev) => (prev?.id === updated.id ? updated : prev))
+        return
+      }
+    } catch {
+      // fall back to local state
+    }
+    setScripts((prev) =>
+      prev.map((item) =>
+        item.id === script.id
+          ? { ...item, usageCount: item.usageCount + 1, updatedAt: new Date().toISOString() }
+          : item
+      )
+    )
+    setSelectedScript((prev) =>
+      prev?.id === script.id
+        ? { ...prev, usageCount: prev.usageCount + 1, updatedAt: new Date().toISOString() }
+        : prev
+    )
+  }, [])
+
+  const handleCopyScript = async (script: Script) => {
+    await navigator.clipboard.writeText(script.content)
+    void incrementUsage(script)
   }
 
   return (
@@ -168,9 +236,16 @@ export default function ScriptsPage() {
                     className="pl-10"
                   />
                 </div>
-                <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 bg-transparent"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setSelectedCategory("all")
+                  }}
+                >
                   <Filter className="h-4 w-4" />
-                  Filters
+                  Clear
                 </Button>
               </div>
 
@@ -244,7 +319,13 @@ export default function ScriptsPage() {
           </TabsContent>
 
           <TabsContent value="scripts" className="space-y-6">
-            {filteredScripts.length === 0 ? (
+            {isLoading ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="py-8 text-center text-muted-foreground">Loading scripts...</div>
+                </CardContent>
+              </Card>
+            ) : filteredScripts.length === 0 ? (
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
@@ -293,8 +374,19 @@ export default function ScriptsPage() {
 
         <AddScriptDialog
           open={addDialogOpen}
-          onOpenChange={setAddDialogOpen}
+          onOpenChange={(open) => {
+            setAddDialogOpen(open)
+            if (!open) setEditingScript(null)
+          }}
           onAddScript={handleAddScript}
+          initialScript={editingScript}
+          dialogTitle={editingScript ? "Edit Script" : "New Script"}
+          dialogDescription={
+            editingScript
+              ? "Update the content, category, or tags for this script."
+              : "Add a new script to your library. Scripts help you stay consistent in presentations, calls, and communications."
+          }
+          submitLabel={editingScript ? "Save Changes" : "Add Script"}
         />
       </div>
     </PortalLayout>

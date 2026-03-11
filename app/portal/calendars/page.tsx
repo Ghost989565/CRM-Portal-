@@ -16,9 +16,6 @@ import {
   MapPin,
   Users,
   Calendar,
-  Pause,
-  Sparkles,
-  X,
   UserPlus,
   RefreshCw,
 } from "lucide-react"
@@ -38,9 +35,6 @@ export default function CalendarsPage() {
   // Calendar events - empty by default, user will add their own
   const events: any[] = []
   const [isLoaded, setIsLoaded] = useState(false)
-  const [showAIPopup, setShowAIPopup] = useState(false)
-  const [typedText, setTypedText] = useState("")
-  const [isPlaying, setIsPlaying] = useState(false)
   const [showCreateEventModal, setShowCreateEventModal] = useState(false)
   const [newEvent, setNewEvent] = useState({
     id: 0,
@@ -82,13 +76,6 @@ export default function CalendarsPage() {
 
   useEffect(() => {
     setIsLoaded(true)
-
-    // Show AI popup after 3 seconds
-    const popupTimer = setTimeout(() => {
-      setShowAIPopup(true)
-    }, 3000)
-
-    return () => clearTimeout(popupTimer)
   }, [])
 
   // Load clients when create-event modal is open (for reminder recipient dropdown)
@@ -136,30 +123,46 @@ export default function CalendarsPage() {
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    if (showAIPopup) {
-      const text =
-        "LLooks like you don't have that many meetings today. Shall I play some Hans Zimmer essentials to help you get into your Flow State?"
-      let i = 0
-      const typingInterval = setInterval(() => {
-        if (i < text.length) {
-          setTypedText((prev) => prev + text.charAt(i))
-          i++
-        } else {
-          clearInterval(typingInterval)
-        }
-      }, 50)
-
-      return () => clearInterval(typingInterval)
-    }
-  }, [showAIPopup])
-
   const [currentView, setCurrentView] = useState<"day" | "week" | "month">("week")
   const [currentDateState, setCurrentDateState] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false)
-  const [appleCalendarConnected, setAppleCalendarConnected] = useState(false)
+  const [calendarNotice, setCalendarNotice] = useState<string | null>(null)
+  const [calendarNoticeType, setCalendarNoticeType] = useState<"success" | "error" | "info">("info")
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/calendar/google/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setGoogleCalendarConnected(Boolean(data?.connected))
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleCalendarConnected(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("google") === "connected") {
+      setGoogleCalendarConnected(true)
+      setCalendarNoticeType("success")
+      setCalendarNotice("Google Calendar connected successfully. New events will sync to your primary calendar.")
+      window.history.replaceState({}, "", window.location.pathname)
+      return
+    }
+    const error = params.get("error")
+    if (error) {
+      setCalendarNoticeType("error")
+      setCalendarNotice(error.replaceAll("_", " "))
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
 
   const handleEventClick = (event: any) => {
     setSelectedEvent(event)
@@ -167,61 +170,33 @@ export default function CalendarsPage() {
 
   const handleGoogleCalendarSync = async () => {
     setIsSyncing(true)
-    try {
-      // TODO: Implement Google Calendar OAuth and sync
-      // This would typically involve:
-      // 1. Redirecting to Google OAuth consent screen
-      // 2. Getting authorization code
-      // 3. Exchanging for access token
-      // 4. Fetching events from Google Calendar API
-      // 5. Merging with local events
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      
-      // For now, just show success message
-      setGoogleCalendarConnected(true)
-      alert("Google Calendar connected successfully! Events will sync automatically.")
-    } catch (error) {
-      console.error("Failed to sync with Google Calendar:", error)
-      alert("Failed to connect to Google Calendar. Please try again.")
-    } finally {
-      setIsSyncing(false)
-    }
+    window.location.href = "/api/calendar/google/connect?next=/portal/calendars"
   }
 
   const handleAppleCalendarSync = async () => {
+    setCalendarNoticeType("info")
+    setCalendarNotice("Apple Calendar sync is not implemented yet. Google Calendar is available today.")
+  }
+
+  const handleDisconnectGoogle = async () => {
     setIsSyncing(true)
     try {
-      // TODO: Implement Apple Calendar sync
-      // This would typically involve:
-      // 1. Using CalDAV protocol for iCloud calendars
-      // 2. Requesting user credentials
-      // 3. Fetching events from CalDAV server
-      // 4. Merging with local events
-      
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      
-      // For now, just show success message
-      setAppleCalendarConnected(true)
-      alert("Apple Calendar connected successfully! Events will sync automatically.")
-    } catch (error) {
-      console.error("Failed to sync with Apple Calendar:", error)
-      alert("Failed to connect to Apple Calendar. Please try again.")
+      const res = await fetch("/api/calendar/google/disconnect", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCalendarNoticeType("error")
+        setCalendarNotice(data?.error ?? "Failed to disconnect Google Calendar.")
+        return
+      }
+      setGoogleCalendarConnected(false)
+      setCalendarNoticeType("success")
+      setCalendarNotice("Google Calendar disconnected.")
+    } catch {
+      setCalendarNoticeType("error")
+      setCalendarNotice("Failed to disconnect Google Calendar.")
     } finally {
       setIsSyncing(false)
     }
-  }
-
-  const handleDisconnectGoogle = () => {
-    setGoogleCalendarConnected(false)
-    alert("Google Calendar disconnected.")
-  }
-
-  const handleDisconnectApple = () => {
-    setAppleCalendarConnected(false)
-    alert("Apple Calendar disconnected.")
   }
 
   // Helper functions for date navigation
@@ -535,11 +510,6 @@ export default function CalendarsPage() {
     )
     // In a real app, you would update this on your backend
     console.log("Request rejected:", requestId)
-  }
-
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying)
-    // Here you would typically also control the actual audio playback
   }
 
   const calculateDayFromDate = (dateString: string) => {
@@ -965,13 +935,11 @@ export default function CalendarsPage() {
                         </svg>
                         <span>Google Calendar</span>
                       </div>
-                      {googleCalendarConnected && (
-                        <span className="text-xs text-green-600">Connected</span>
-                      )}
+                      {googleCalendarConnected && <span className="text-xs text-green-600">Connected</span>}
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={appleCalendarConnected ? handleDisconnectApple : handleAppleCalendarSync}
+                    onClick={handleAppleCalendarSync}
                     className="cursor-pointer"
                     disabled={isSyncing}
                   >
@@ -980,15 +948,27 @@ export default function CalendarsPage() {
                         <Calendar className="h-4 w-4" />
                         <span>Apple Calendar</span>
                       </div>
-                      {appleCalendarConnected && (
-                        <span className="text-xs text-green-600">Connected</span>
-                      )}
+                      <span className="text-xs text-amber-600">Coming soon</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
+
+          {calendarNotice && (
+            <div
+              className={`mx-4 mt-2 rounded-lg border px-4 py-3 text-sm ${
+                calendarNoticeType === "success"
+                  ? "border-green-400/30 bg-green-500/15 text-green-100"
+                  : calendarNoticeType === "error"
+                    ? "border-red-400/30 bg-red-500/15 text-red-100"
+                    : "border-blue-400/30 bg-blue-500/15 text-blue-100"
+              }`}
+            >
+              {calendarNotice}
+            </div>
+          )}
 
           {/* Calendar Views */}
           <div className="flex-1 overflow-auto p-4">
@@ -1260,53 +1240,6 @@ export default function CalendarsPage() {
             </div>
           </div>
         </div>
-
-        {/* AI Popup */}
-        {showAIPopup && (
-          <div className="fixed bottom-8 right-8 z-20">
-            <div className="w-[450px] relative bg-gradient-to-br from-blue-400/30 via-blue-500/30 to-blue-600/30 backdrop-blur-lg p-6 rounded-2xl shadow-xl border border-blue-300/30 text-white">
-              <button
-                onClick={() => setShowAIPopup(false)}
-                className="absolute top-2 right-2 text-white/70 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <div className="flex gap-3">
-                <div className="flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-blue-300" />
-                </div>
-                <div className="min-h-[80px]">
-                  <p className="text-base font-light">{typedText}</p>
-                </div>
-              </div>
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={togglePlay}
-                  className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-sm transition-colors font-medium"
-                >
-                  Yes
-                </button>
-                <button
-                  onClick={() => setShowAIPopup(false)}
-                  className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-sm transition-colors font-medium"
-                >
-                  No
-                </button>
-              </div>
-              {isPlaying && (
-                <div className="mt-4 flex items-center justify-between">
-                  <button
-                    className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-white text-sm hover:bg-white/20 transition-colors"
-                    onClick={togglePlay}
-                  >
-                    <Pause className="h-4 w-4" />
-                    <span>Pause Hans Zimmer</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

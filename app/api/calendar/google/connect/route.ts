@@ -9,6 +9,8 @@ const SCOPE = "https://www.googleapis.com/auth/calendar.events https://www.googl
 
 export async function GET(request: Request) {
   const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID
+  const requestUrl = new URL(request.url)
+  const nextPath = requestUrl.searchParams.get("next") || "/portal/calendars"
   if (!clientId) {
     return NextResponse.redirect(new URL("/portal/settings?tab=calendar&error=missing_config", request.url))
   }
@@ -19,10 +21,9 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
-  const url = new URL(request.url)
-  const origin = url.origin
+  const origin = requestUrl.origin
   const redirectUri = `${origin}/api/calendar/google/callback`
-  const state = Buffer.from(JSON.stringify({ userId: user.id })).toString("base64url")
+  const state = Buffer.from(JSON.stringify({ userId: user.id, nextPath })).toString("base64url")
   const authUrl =
     "https://accounts.google.com/o/oauth2/v2/auth?" +
     new URLSearchParams({

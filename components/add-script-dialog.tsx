@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,10 @@ interface AddScriptDialogProps {
   onOpenChange: (open: boolean) => void
   onAddScript: (script: Script) => void
   defaultAuthor?: string
+  initialScript?: Script | null
+  dialogTitle?: string
+  dialogDescription?: string
+  submitLabel?: string
 }
 
 export function AddScriptDialog({
@@ -34,6 +38,10 @@ export function AddScriptDialog({
   onOpenChange,
   onAddScript,
   defaultAuthor = "You",
+  initialScript = null,
+  dialogTitle = "New Script",
+  dialogDescription = "Add a new script to your library. Scripts help you stay consistent in presentations, calls, and communications.",
+  submitLabel = "Add Script",
 }: AddScriptDialogProps) {
   const [title, setTitle] = useState("")
   const [category, setCategory] = useState<Script["category"]>("presentation")
@@ -47,6 +55,18 @@ export function AddScriptDialog({
     setTagsInput("")
   }
 
+  useEffect(() => {
+    if (!open) return
+    if (initialScript) {
+      setTitle(initialScript.title)
+      setCategory(initialScript.category)
+      setContent(initialScript.content)
+      setTagsInput(initialScript.tags.join(", "))
+      return
+    }
+    resetForm()
+  }, [open, initialScript])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
@@ -58,16 +78,16 @@ export function AddScriptDialog({
 
     const now = new Date().toISOString()
     const newScript: Script = {
-      id: `script-${Date.now()}`,
+      id: initialScript?.id || `script-${Date.now()}`,
       title: title.trim(),
       category,
       content: content.trim(),
       tags,
-      createdAt: now,
+      createdAt: initialScript?.createdAt || now,
       updatedAt: now,
-      author: defaultAuthor,
-      isTemplate: false,
-      usageCount: 0,
+      author: initialScript?.author || defaultAuthor,
+      isTemplate: initialScript?.isTemplate ?? false,
+      usageCount: initialScript?.usageCount ?? 0,
     }
 
     onAddScript(newScript)
@@ -79,10 +99,8 @@ export function AddScriptDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Script</DialogTitle>
-          <DialogDescription>
-            Add a new script to your library. Scripts help you stay consistent in presentations, calls, and communications.
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -142,7 +160,7 @@ export function AddScriptDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={!title.trim() || !content.trim()}>
-              Add Script
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>

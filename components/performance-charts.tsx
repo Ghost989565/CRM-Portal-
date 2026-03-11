@@ -16,9 +16,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { mockChartData, activityData } from "@/lib/performance-data"
+import type { ChartDataPoint } from "@/lib/performance-data"
 
-export function PerformanceCharts() {
+interface PerformanceChartsProps {
+  chartData: Record<string, ChartDataPoint[]>
+  activityData: Array<{ date: string; calls: number; emails: number; appointments: number; presentations: number }>
+  comparisonData: Array<{ name: string; actual: number; target: number }>
+}
+
+export function PerformanceCharts({ chartData, activityData, comparisonData }: PerformanceChartsProps) {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="trends" className="space-y-4">
@@ -29,7 +35,7 @@ export function PerformanceCharts() {
         </TabsList>
 
         <TabsContent value="trends" className="space-y-4">
-          {Object.keys(mockChartData).length === 0 ? (
+          {Object.keys(chartData).length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground">No chart data available. Add metrics to see trends.</p>
@@ -37,7 +43,7 @@ export function PerformanceCharts() {
             </Card>
           ) : (
             <>
-              {mockChartData["apps-submitted"] && mockChartData["apps-submitted"].length > 0 && (
+              {chartData["apps-submitted"] && chartData["apps-submitted"].length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card>
                     <CardHeader>
@@ -46,7 +52,7 @@ export function PerformanceCharts() {
                     </CardHeader>
                     <CardContent>
                       <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={mockChartData["apps-submitted"]}>
+                        <LineChart data={chartData["apps-submitted"]}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" />
                           <YAxis />
@@ -61,7 +67,7 @@ export function PerformanceCharts() {
                 </div>
               )}
 
-              {mockChartData["premium-volume"] && mockChartData["premium-volume"].length > 0 && (
+              {chartData["premium-volume"] && chartData["premium-volume"].length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Premium Volume</CardTitle>
@@ -69,7 +75,7 @@ export function PerformanceCharts() {
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={mockChartData["premium-volume"]}>
+                      <AreaChart data={chartData["premium-volume"]}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -90,7 +96,7 @@ export function PerformanceCharts() {
                 </Card>
               )}
 
-              {mockChartData["close-rate"] && mockChartData["close-rate"].length > 0 && (
+              {chartData["close-rate"] && chartData["close-rate"].length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Close Rate Trend</CardTitle>
@@ -98,7 +104,7 @@ export function PerformanceCharts() {
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={mockChartData["close-rate"]}>
+                      <LineChart data={chartData["close-rate"]}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
@@ -150,13 +156,13 @@ export function PerformanceCharts() {
               <CardDescription>Current performance vs targets across all metrics</CardDescription>
             </CardHeader>
             <CardContent>
-              {activityData.length === 0 && Object.keys(mockChartData).length === 0 ? (
+              {activityData.length === 0 && Object.keys(chartData).length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-muted-foreground">No data available for comparison. Add metrics to see comparisons.</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={[]}>
+                  <BarChart data={comparisonData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />

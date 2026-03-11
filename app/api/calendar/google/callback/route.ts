@@ -14,25 +14,31 @@ export async function GET(request: Request) {
   const state = url.searchParams.get("state")
   const error = url.searchParams.get("error")
   const origin = url.origin
-  const redirectTo = `${origin}/portal/settings?tab=calendar`
+  const defaultRedirectTo = `${origin}/portal/calendars`
+  const appendError = (target: string, value: string) =>
+    `${target}${target.includes("?") ? "&" : "?"}error=${encodeURIComponent(value)}`
 
   if (error) {
-    return NextResponse.redirect(redirectTo + "&error=" + encodeURIComponent(error))
+    return NextResponse.redirect(appendError(defaultRedirectTo, error))
   }
   if (!code || !state) {
-    return NextResponse.redirect(redirectTo + "&error=missing_code")
+    return NextResponse.redirect(appendError(defaultRedirectTo, "missing_code"))
   }
   if (!isSupabaseConfigured() || !supabase) {
-    return NextResponse.redirect(redirectTo + "&error=not_configured")
+    return NextResponse.redirect(appendError(defaultRedirectTo, "not_configured"))
   }
 
   let userId: string
+  let redirectTo = defaultRedirectTo
   try {
     const decoded = JSON.parse(Buffer.from(state, "base64url").toString())
     userId = decoded.userId
+    if (typeof decoded.nextPath === "string" && decoded.nextPath.startsWith("/")) {
+      redirectTo = `${origin}${decoded.nextPath}`
+    }
     if (!userId) throw new Error("no userId")
   } catch {
-    return NextResponse.redirect(redirectTo + "&error=invalid_state")
+    return NextResponse.redirect(appendError(defaultRedirectTo, "invalid_state"))
   }
 
   const supabaseClient = await createClient()
@@ -40,13 +46,13 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabaseClient.auth.getUser()
   if (!user || user.id !== userId) {
-    return NextResponse.redirect(redirectTo + "&error=unauthorized")
+    return NextResponse.redirect(appendError(redirectTo, "unauthorized"))
   }
 
   const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(redirectTo + "&error=missing_config")
+    return NextResponse.redirect(appendError(redirectTo, "missing_config"))
   }
 
   const redirectUri = `${origin}/api/calendar/google/callback`
@@ -65,7 +71,7 @@ export async function GET(request: Request) {
   if (!res.ok) {
     const err = await res.text()
     console.error("[calendar/google/callback] token error:", err)
-    return NextResponse.redirect(redirectTo + "&error=token_failed")
+    return NextResponse.redirect(appendError(redirectTo, "token_failed"))
   }
 
   const data = (await res.json()) as {
@@ -88,5 +94,5 @@ export async function GET(request: Request) {
     { onConflict: "user_id,provider" }
   )
 
-  return NextResponse.redirect(redirectTo + "&google=connected")
+  return NextResponse.redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}google=connected`)
 }

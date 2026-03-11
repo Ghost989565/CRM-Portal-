@@ -1,62 +1,61 @@
 /**
  * POST /api/teams/join
  *
- * Join a team using a team code. Team admins receive a unique code when they
- * purchase a subscription; agents use this code to join their team.
- *
- * Request: { teamCode: string }
- * Returns: { success: true } | { success: false, error: string }
+ * Backward-compatible alias for the workspace join flow.
+ * Accepts { teamCode } and creates a pending join request for the current user.
  */
 import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
 export async function POST(request: Request) {
   try {
-    // TODO: Get current user from Supabase session
-    // const supabase = await createClient()
-    // const { data: { user } } = await supabase.auth.getUser()
-    // if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!isSupabaseConfigured() || !supabase) {
+      return NextResponse.json({ error: "Service not configured" }, { status: 503 })
+    }
+
+    const authClient = await createClient()
+    const {
+      data: { user },
+    } = await authClient.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     let body: { teamCode?: string }
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
 
-    const teamCode = body?.teamCode?.trim()?.toUpperCase()
+    const teamCode = body?.teamCode?.trim()
     if (!teamCode) {
-      return NextResponse.json(
-        { error: "Team code is required" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Team code is required" }, { status: 400 })
     }
 
-    // TODO: Validate team code against teams table and add user to team_members
-    // const { data: team } = await supabase
-    //   .from("teams")
-    //   .select("id")
-    //   .eq("team_code", teamCode)
-    //   .single()
-    // if (!team) return NextResponse.json({ error: "Invalid team code" }, { status: 404 })
-    // await supabase.from("team_members").insert({ team_id: team.id, user_id: user.id, role: "agent" })
+    const { data, error } = await supabase.rpc("request_to_join_workspace", {
+      p_team_code: teamCode,
+      p_user_id: user.id,
+    })
 
-    // Stub: accept any 4+ char code for now
-    if (teamCode.length < 4) {
-      return NextResponse.json(
-        { error: "Invalid team code" },
-        { status: 404 }
-      )
+    if (error) {
+      console.error("[teams/join] RPC error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    const result = data as { success: boolean; error?: string; pending?: boolean; workspace_id?: string }
+    if (!result.success) {
+      return NextResponse.json({ error: result.error ?? "Failed to request" }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      workspace_id: result.workspace_id,
+      pending: result.pending === true,
+    })
   } catch (err) {
-    console.error("[api/teams/join] Error:", err)
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 }
-    )
+    console.error("[teams/join] Error:", err)
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }

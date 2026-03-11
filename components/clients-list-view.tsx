@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Phone, Mail, MessageSquare, MoreHorizontal, Search, Filter, Users, Share2 } from "lucide-react"
 import { statusOptions, type Client } from "@/lib/crm-data"
 import { useClients } from "@/contexts/clients-context"
@@ -20,10 +21,11 @@ interface ClientsListViewProps {
 
 export function ClientsListView({ onClientSelect, onSendClient }: ClientsListViewProps) {
   const { logContact, getLastContact, getLastCall } = useContactLogs()
-  const { clients, setClients, updateClient } = useClients()
+  const { clients, updateClient } = useClients()
   const [selectedClients, setSelectedClients] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("All")
+  const [bulkStatus, setBulkStatus] = useState<string>("")
   const [sortField, setSortField] = useState<keyof Client>("lastName")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
@@ -132,23 +134,12 @@ export function ClientsListView({ onClientSelect, onSendClient }: ClientsListVie
             size="sm"
             className="text-foreground border-border hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
-              // TODO: Open filters panel
-              console.log("Filters clicked")
+              setSearchTerm("")
+              setStatusFilter("All")
             }}
           >
             <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-foreground border-border hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              // TODO: Open import dialog
-              console.log("Import clicked")
-            }}
-          >
-            Import
+            Clear
           </Button>
         </div>
       </div>
@@ -191,28 +182,26 @@ export function ClientsListView({ onClientSelect, onSendClient }: ClientsListVie
       {selectedClients.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
           <span className="text-sm font-medium">{selectedClients.length} selected</span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-foreground border-border hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              // TODO: Open bulk tag dialog
-              console.log("Bulk tag clicked for:", selectedClients)
+          <Select
+            value={bulkStatus}
+            onValueChange={async (value) => {
+              setBulkStatus(value)
+              await Promise.all(selectedClients.map((clientId) => updateClient(clientId, { status: value as Client["status"] })))
+              setSelectedClients([])
+              setBulkStatus("")
             }}
           >
-            Bulk Tag
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-foreground border-border hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              // TODO: Open status update dialog
-              console.log("Update status clicked for:", selectedClients)
-            }}
-          >
-            Update Status
-          </Button>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Update status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
