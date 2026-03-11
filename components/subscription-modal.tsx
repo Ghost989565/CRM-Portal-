@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,25 @@ interface SubscriptionModalProps {
 
 export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps) {
   const router = useRouter()
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch("/api/billing/info")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setWorkspaceId(data?.workspace?.id ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setWorkspaceId(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   function handleClose(open: boolean) {
     onOpenChange(open)
@@ -51,9 +71,29 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
     }
   }
 
-  function handleSelect(planId: string) {
-    // TODO: Wire to checkout or contact flow
-    handleClose(false)
+  async function handleSelect(planId: string) {
+    setLoadingPlanId(planId)
+    setError(null)
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "plan",
+          planId,
+          workspaceId: workspaceId ?? undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error ?? "Unable to start checkout")
+      }
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start checkout")
+    } finally {
+      setLoadingPlanId(null)
+    }
   }
 
   return (
@@ -84,12 +124,14 @@ export function SubscriptionModal({ open, onOpenChange }: SubscriptionModalProps
               <Button
                 className="mt-6"
                 onClick={() => handleSelect(plan.id)}
+                disabled={loadingPlanId !== null}
               >
-                {plan.cta}
+                {loadingPlanId === plan.id ? "Loading..." : plan.cta}
               </Button>
             </div>
           ))}
         </div>
+        {error && <p className="text-sm text-red-500">{error}</p>}
         <p className="text-center text-sm text-muted-foreground pt-2">
           Choose later? You can always pick a plan from{" "}
           <Link href="/portal/settings/billing" className="text-primary underline">Billing</Link>.

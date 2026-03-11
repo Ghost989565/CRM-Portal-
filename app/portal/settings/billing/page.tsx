@@ -34,6 +34,7 @@ export default function BillingPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -64,9 +65,10 @@ export default function BillingPage() {
   async function startCheckout(type: "plan" | "sms_pack", planId?: string, packId?: string) {
     const workspaceId = billing?.workspace?.id
     if (type === "sms_pack" && !workspaceId) {
-      alert("Create a team first by subscribing to a plan")
+      setCheckoutError("Create a team first by subscribing to a plan.")
       return
     }
+    setCheckoutError(null)
     setCheckoutLoading(planId || packId || "")
     try {
       const res = await fetch("/api/billing/checkout", {
@@ -83,7 +85,7 @@ export default function BillingPage() {
       if (data.url) window.location.href = data.url
       else throw new Error(data.error || "Checkout failed")
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Checkout failed")
+      setCheckoutError(err instanceof Error ? err.message : "Checkout failed")
     } finally {
       setCheckoutLoading(null)
     }
@@ -143,6 +145,7 @@ export default function BillingPage() {
               {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("success") === "1" && (
                 <p className="text-sm text-muted-foreground mt-4">Setting up your team... You&apos;ll see your team code here shortly.</p>
               )}
+              {checkoutError && <p className="mt-4 text-sm text-red-400">{checkoutError}</p>}
             </CardContent>
           </Card>
         ) : (
@@ -192,6 +195,7 @@ export default function BillingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {checkoutError && <p className="mb-4 text-sm text-red-400">{checkoutError}</p>}
                 {!billing.billing?.subscription || billing.billing.subscription.status !== "active" ? (
                   <div className="grid md:grid-cols-3 gap-4">
                     {PLANS.map((plan) => (
@@ -236,6 +240,7 @@ export default function BillingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {checkoutError && <p className="mb-4 text-sm text-red-400">{checkoutError}</p>}
                 <div className="grid md:grid-cols-3 gap-4">
                   {SMS_PACKS.map((pack) => (
                     <div

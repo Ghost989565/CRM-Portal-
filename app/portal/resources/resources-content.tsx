@@ -24,6 +24,8 @@ interface ResourceItem {
   size?: string
   date: string
   icon: any
+  href: string
+  actionLabel: string
 }
 
 export type CourseForResources = {
@@ -41,21 +43,17 @@ export type CoursesData = {
   templateSummary: { title: string; description: string; category: string | null; level: string | null; lessonCount: number }
 }
 
-const placeholderResources: ResourceItem[] = [
-  { id: "prod-guide-1", title: "Life Insurance Product Guide 2024", description: "Comprehensive guide covering all life insurance products, features, and benefits available this year.", type: "pdf", category: "product", size: "2.4 MB", date: "2024-01-15", icon: FileText },
-  { id: "prod-guide-2", title: "Annuity Products Overview", description: "Detailed overview of annuity products, payout options, and tax advantages.", type: "pdf", category: "product", size: "1.8 MB", date: "2024-01-10", icon: FileText },
-  { id: "compliance-1", title: "State Licensing Requirements", description: "Complete guide to state-specific licensing requirements and continuing education.", type: "pdf", category: "compliance", size: "3.2 MB", date: "2024-01-20", icon: File },
-  { id: "compliance-2", title: "HIPAA Compliance Checklist", description: "Essential checklist for maintaining HIPAA compliance in client communications.", type: "document", category: "compliance", size: "856 KB", date: "2024-01-18", icon: File },
-  { id: "marketing-1", title: "2024 Marketing Campaign Templates", description: "Ready-to-use email templates, social media posts, and print materials.", type: "document", category: "marketing", size: "5.1 MB", date: "2024-01-12", icon: Presentation },
-  { id: "marketing-2", title: "Brand Guidelines", description: "Official brand guidelines including logos, colors, fonts, and usage examples.", type: "pdf", category: "marketing", size: "4.7 MB", date: "2024-01-08", icon: FileText },
-  { id: "guide-1", title: "Client Onboarding Best Practices", description: "Step-by-step guide for effective client onboarding and relationship building.", type: "pdf", category: "guides", size: "1.5 MB", date: "2024-01-22", icon: BookOpen },
-  { id: "guide-2", title: "Sales Process Workflow", description: "Visual workflow diagram showing the complete sales process from lead to close.", type: "document", category: "guides", size: "2.1 MB", date: "2024-01-19", icon: Presentation },
-  { id: "video-1", title: "Product Demo: Term Life Insurance", description: "Video demonstration explaining term life insurance products and features.", type: "video", category: "product", size: "45 MB", date: "2024-01-14", icon: Video },
-  { id: "video-2", title: "CFT Platform Tutorial", description: "Complete tutorial on using the Client Financial Tools platform effectively.", type: "video", category: "guides", size: "128 MB", date: "2024-01-16", icon: Video },
-  { id: "template-1", title: "Client Meeting Agenda Template", description: "Professional meeting agenda template for client consultations.", type: "document", category: "templates", size: "124 KB", date: "2024-01-21", icon: FileText },
-  { id: "template-2", title: "Proposal Template", description: "Standardized proposal template for presenting insurance solutions to clients.", type: "document", category: "templates", size: "312 KB", date: "2024-01-17", icon: FileText },
-  { id: "link-1", title: "Industry News Portal", description: "Access to the latest insurance industry news and updates.", type: "link", category: "guides", date: "2024-01-13", icon: LinkIcon },
-  { id: "link-2", title: "Regulatory Updates", description: "Stay informed about regulatory changes affecting the insurance industry.", type: "link", category: "compliance", date: "2024-01-11", icon: LinkIcon },
+const resourceLibrary: ResourceItem[] = [
+  { id: "prod-guide-1", title: "Pantheon Course Template", description: "Reference course structure with modules and lessons that shows the intended learning experience inside the portal.", type: "presentation", category: "product", size: "Portal", date: "2026-03-11", icon: Presentation, href: "/portal/courses/template", actionLabel: "Open course" },
+  { id: "prod-guide-2", title: "CFT Training Module", description: "Internal walkthrough for client financial tools workflows, reporting, and presentation prep.", type: "video", category: "product", size: "Training", date: "2026-03-11", icon: Video, href: "/portal/resources?tab=modules", actionLabel: "Open training" },
+  { id: "compliance-1", title: "Twilio Use Policy", description: "Live policy page covering SMS usage, consent, and communications compliance for the portal.", type: "document", category: "compliance", size: "Web page", date: "2026-03-11", icon: File, href: "/policy/twilio", actionLabel: "View policy" },
+  { id: "compliance-2", title: "Privacy Policy", description: "Current privacy terms for platform data handling, customer information, and service usage.", type: "document", category: "compliance", size: "Web page", date: "2026-03-11", icon: FileText, href: "/privacy", actionLabel: "View policy" },
+  { id: "marketing-1", title: "Scripts Library", description: "Use approved call, presentation, recruiting, and follow-up scripts directly from the portal.", type: "document", category: "marketing", size: "Portal", date: "2026-03-11", icon: FileText, href: "/portal/scripts", actionLabel: "Open scripts" },
+  { id: "marketing-2", title: "Team Billing Setup", description: "Manage plan selection, team creation, and SMS credits from the billing console.", type: "link", category: "marketing", size: "Portal", date: "2026-03-11", icon: LinkIcon, href: "/portal/settings/billing", actionLabel: "Open billing" },
+  { id: "guide-1", title: "Appointment Training", description: "Internal training content for setting, preparing, and following through on client appointments.", type: "video", category: "guides", size: "Training", date: "2026-03-11", icon: Calendar, href: "/portal/resources?tab=modules", actionLabel: "Open training" },
+  { id: "guide-2", title: "SMS Test Console", description: "Operational page for validating outbound messaging configuration and webhook behavior.", type: "link", category: "guides", size: "Portal", date: "2026-03-11", icon: LinkIcon, href: "/test-sms", actionLabel: "Open console" },
+  { id: "template-1", title: "Billing Templates", description: "Stripe-backed plan and SMS purchase flow available from Billing for workspace setup and expansion.", type: "document", category: "templates", size: "Portal", date: "2026-03-11", icon: FileText, href: "/portal/settings/billing", actionLabel: "Open billing" },
+  { id: "template-2", title: "Team Invite Flow", description: "Use the Admin area to invite teammates and approve join requests with your workspace team code.", type: "document", category: "templates", size: "Portal", date: "2026-03-11", icon: FileText, href: "/portal/admin", actionLabel: "Open admin" },
 ]
 
 export function ResourcesContent({
@@ -100,9 +98,7 @@ export function ResourcesContent({
     setViewerOpen(true)
   }
 
-  const handleLessonComplete = (_moduleId: string, _lessonId: string) => {
-    console.log("Lesson complete")
-  }
+  const handleLessonComplete = (_moduleId: string, _lessonId: string) => {}
 
   const getCategoryStats = (categoryId: string) => {
     const modules = categoryId === "all" ? trainingModules : trainingModules.filter((m) => m.category === categoryId)
@@ -153,7 +149,7 @@ export function ResourcesContent({
           <TabsList className="bg-white/10 border-white/20">
             <TabsTrigger value="overview" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70">Overview</TabsTrigger>
             <TabsTrigger value="modules" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70">Training ({filteredModules.length})</TabsTrigger>
-            <TabsTrigger value="resources" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70">Resources ({placeholderResources.length})</TabsTrigger>
+            <TabsTrigger value="resources" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70">Resources ({resourceLibrary.length})</TabsTrigger>
             <TabsTrigger value="courses" className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70">Courses ({courseCount})</TabsTrigger>
           </TabsList>
 
@@ -175,11 +171,11 @@ export function ResourcesContent({
               <Card className="border-white/20 bg-white/5">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2"><FileText className="h-5 w-5" />Resources Library</CardTitle>
-                  <CardDescription className="text-white/70">{placeholderResources.length} resources available</CardDescription>
+                  <CardDescription className="text-white/70">{resourceLibrary.length} resources available</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between"><span className="text-white/70">Total Resources</span><span className="text-white font-medium">{placeholderResources.length}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-white/70">Total Resources</span><span className="text-white font-medium">{resourceLibrary.length}</span></div>
                     <div className="flex items-center justify-between"><span className="text-white/70">Categories</span><span className="text-white font-medium">5</span></div>
                   </div>
                   <Button onClick={() => setActiveTab("resources")} className="mt-4 w-full bg-white/10 hover:bg-white/20 text-white border-white/20">View Resources</Button>
@@ -326,7 +322,7 @@ export function ResourcesContent({
               )}
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {placeholderResources
+              {resourceLibrary
                 .filter((resource) => {
                   const matchesCategory = selectedResourceCategory === "all" || resource.category === selectedResourceCategory
                   const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) || resource.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -361,15 +357,17 @@ export function ResourcesContent({
                           <span>{new Date(resource.date).toLocaleDateString()}</span>
                           {resource.size && <span>{resource.size}</span>}
                         </div>
-                        <Button variant="outline" className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20" onClick={() => { if (resource.type === "link") window.open("#", "_blank"); else alert(`Opening ${resource.title}...`) }}>
-                          {resource.type === "link" ? <><LinkIcon className="h-4 w-4 mr-2" />Open Link</> : resource.type === "video" ? <><Video className="h-4 w-4 mr-2" />Watch Video</> : <><Download className="h-4 w-4 mr-2" />Download</>}
+                        <Button variant="outline" className="w-full bg-white/10 hover:bg-white/20 text-white border-white/20" asChild>
+                          <Link href={resource.href}>
+                            {resource.type === "link" ? <><LinkIcon className="h-4 w-4 mr-2" />{resource.actionLabel}</> : resource.type === "video" ? <><Video className="h-4 w-4 mr-2" />{resource.actionLabel}</> : <><Download className="h-4 w-4 mr-2" />{resource.actionLabel}</>}
+                          </Link>
                         </Button>
                       </CardContent>
                     </Card>
                   )
                 })}
             </div>
-            {placeholderResources.filter((r) => (selectedResourceCategory === "all" || r.category === selectedResourceCategory) && (r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && (
+            {resourceLibrary.filter((r) => (selectedResourceCategory === "all" || r.category === selectedResourceCategory) && (r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && (
               <Card className="border-white/20 bg-white/5"><CardContent className="py-12 text-center"><p className="text-white/70">No resources found matching your search.</p></CardContent></Card>
             )}
           </TabsContent>

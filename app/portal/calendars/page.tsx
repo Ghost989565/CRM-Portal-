@@ -577,7 +577,8 @@ export default function CalendarsPage() {
     e.preventDefault()
 
     if (!newEvent.title) {
-      alert("Please enter an event title")
+      setCalendarNoticeType("error")
+      setCalendarNotice("Please enter an event title.")
       return
     }
 
@@ -611,7 +612,8 @@ export default function CalendarsPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        alert(data.error || "Failed to create event")
+        setCalendarNoticeType("error")
+        setCalendarNotice(data.error || "Failed to create event.")
         return
       }
       if (data.event) {
@@ -624,9 +626,12 @@ export default function CalendarsPage() {
       setShowCreateEventModal(false)
       setEventClientId("")
       setEventAttendeePhones("")
+      setCalendarNoticeType("success")
+      setCalendarNotice("Event created successfully.")
     } catch (err) {
       console.error(err)
-      alert("Failed to create event")
+      setCalendarNoticeType("error")
+      setCalendarNotice("Failed to create event.")
     }
   }
 
