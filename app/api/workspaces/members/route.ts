@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server"
 import { getWorkspaceForUser } from "@/lib/workspace"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
+export const dynamic = "force-dynamic"
+
 export interface WorkspaceMember {
   id: string
   email: string

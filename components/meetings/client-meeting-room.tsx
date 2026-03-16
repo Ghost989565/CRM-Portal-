@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { SlideViewer } from "./slide-viewer"
 import { ChevronLeft, ChevronRight, Wifi, WifiOff } from "lucide-react"
 import type { PresentationSource } from "@/lib/presentation-source"
+import { createMeetingLiveChannel, type MeetingLiveSharePayload } from "@/lib/meeting-live-channel"
 
 type State = {
   current_slide_index: number
@@ -30,6 +31,7 @@ export function ClientMeetingRoom({
 }) {
   const [state, setState] = useState(initialState)
   const [connected, setConnected] = useState(true)
+  const [sharedScreen, setSharedScreen] = useState<MeetingLiveSharePayload | null>(null)
   const canNavigateSlides = presentationSource?.canNavigate ?? true
   const numSlides = canNavigateSlides ? initialSlides.length : Math.max(initialSlides.length, 1)
   const activeSlideIndex = canNavigateSlides ? Math.min(state.current_slide_index, Math.max(numSlides - 1, 0)) : 0
@@ -51,6 +53,16 @@ export function ClientMeetingRoom({
     const t = setInterval(poll, POLL_INTERVAL_MS)
     return () => clearInterval(t)
   }, [poll])
+
+  useEffect(() => {
+    const channel = createMeetingLiveChannel(initialMeeting.id, (payload) => {
+      setSharedScreen(payload.active ? payload : null)
+    })
+
+    return () => {
+      void channel.unsubscribe()
+    }
+  }, [initialMeeting.id])
 
   const updateSlideIndex = async (index: number) => {
     if (!state.allow_client_navigation || !canNavigateSlides) return
@@ -96,11 +108,21 @@ export function ClientMeetingRoom({
 
       <main className="flex-1 flex flex-col min-h-0 p-4">
         <div className="relative flex-1 min-h-[400px]">
-          <SlideViewer
-            presentationSource={presentationSource}
-            pageIndex={activeSlideIndex}
-            className="h-full min-h-[400px]"
-          />
+          {sharedScreen?.active && sharedScreen.frame ? (
+            <div className="flex h-full min-h-[400px] items-center justify-center overflow-hidden rounded-lg bg-black/30">
+              <img
+                src={sharedScreen.frame}
+                alt={sharedScreen.sourceLabel ?? "Shared presentation"}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          ) : (
+            <SlideViewer
+              presentationSource={presentationSource}
+              pageIndex={activeSlideIndex}
+              className="h-full min-h-[400px]"
+            />
+          )}
           {(state.show_host_camera ?? true) && state.host_camera_frame && (
             <div className="absolute bottom-4 right-4 w-56 overflow-hidden rounded-xl border border-white/20 bg-black/70 shadow-2xl">
               <div className="border-b border-white/10 px-3 py-2 text-xs uppercase tracking-wide text-white/60">
@@ -114,7 +136,7 @@ export function ClientMeetingRoom({
             </div>
           )}
         </div>
-        {state.allow_client_navigation && canNavigateSlides && numSlides > 0 && (
+        {!sharedScreen?.active && state.allow_client_navigation && canNavigateSlides && numSlides > 0 && (
           <div className="flex items-center justify-center gap-2 mt-3">
             <button
               type="button"
@@ -137,9 +159,14 @@ export function ClientMeetingRoom({
             </button>
           </div>
         )}
-        {!canNavigateSlides && (
+        {!sharedScreen?.active && !canNavigateSlides && (
           <p className="mt-3 text-center text-xs text-white/50">
             This presentation is being shown as a shared embedded source.
+          </p>
+        )}
+        {sharedScreen?.active && (
+          <p className="mt-3 text-center text-xs text-white/50">
+            The presenter is sharing a local presentation window live.
           </p>
         )}
       </main>

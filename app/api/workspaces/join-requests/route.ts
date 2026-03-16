@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { getWorkspaceForUser } from "@/lib/workspace"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     if (!isSupabaseConfigured() || !supabase) {

@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase"
 import { isSupabaseConfigured } from "@/lib/supabase"
 import { generateIcs, type CalendarEventForIcs } from "@/lib/calendar-ics"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     if (!isSupabaseConfigured() || !supabase) {

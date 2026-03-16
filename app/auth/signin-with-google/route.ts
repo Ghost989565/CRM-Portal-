@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
+import { hasSupabaseBrowserEnv } from "@/lib/supabase/env"
 import { NextResponse } from "next/server"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -9,7 +12,7 @@ export async function GET(request: Request) {
     ? `${request.headers.get("x-forwarded-proto") ?? "https"}://${forwardedHost}`
     : requestUrl.origin
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!hasSupabaseBrowserEnv()) {
     return NextResponse.redirect(`${origin}/login?error=supabase_not_configured`)
   }
 

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server"
 import { getWorkspaceForUser } from "@/lib/workspace"
 import { listEmailTemplates, isTemplateName } from "@/lib/email-templates"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const supabase = await createClient()

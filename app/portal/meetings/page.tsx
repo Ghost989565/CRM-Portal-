@@ -85,7 +85,7 @@ export default function MeetingsPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">Presentations</h1>
             <p className="text-white/70">
-              Your presentations. Create one, attach a slide deck, and share the invite link with viewers.
+              Your presentations. Create one, upload a slide deck, and share the invite link with viewers.
             </p>
           </div>
           <Button
@@ -127,7 +127,7 @@ export default function MeetingsPage() {
             <CardContent className="py-12 text-center">
               <Video className="h-12 w-12 mx-auto text-white/40 mb-4" />
               <p className="text-white/80 mb-2">No presentations yet</p>
-              <p className="text-white/60 text-sm mb-4">Create a presentation to host a live session with slides.</p>
+              <p className="text-white/60 text-sm mb-4">Create a presentation to host a live session with an uploaded slide deck.</p>
               <Button
                 type="button"
                 onClick={handleCreate}

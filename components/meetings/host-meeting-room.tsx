@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button"
 import { SlideViewer } from "./slide-viewer"
 import { ScriptPanel } from "./script-panel"
 import { CameraPreview } from "./camera-preview"
-import { ChevronLeft, ChevronRight, Copy, Radio, Square, Play, Settings2, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, Copy, Radio, Square, Play, Settings2, Upload, MonitorUp, MonitorOff } from "lucide-react"
 import type { PresentationSource } from "@/lib/presentation-source"
 import { getRenderableSlideNotes } from "@/lib/presentation-source"
+import { broadcastMeetingScreenShare, createMeetingLiveChannel, type MeetingLiveSharePayload } from "@/lib/meeting-live-channel"
+import type { RealtimeChannel } from "@supabase/supabase-js"
 
 type Meeting = {
   id: string
@@ -64,7 +66,16 @@ export function HostMeetingRoom({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [linkInput, setLinkInput] = useState("")
   const [linkLabel, setLinkLabel] = useState("")
+  const [sharedScreen, setSharedScreen] = useState<MeetingLiveSharePayload | null>(null)
+  const [screenShareError, setScreenShareError] = useState<string | null>(null)
+  const [startingScreenShare, setStartingScreenShare] = useState(false)
   const lastPublishedFrameRef = useRef<string | null>(null)
+  const deckUploadInputRef = useRef<HTMLInputElement | null>(null)
+  const liveChannelRef = useRef<RealtimeChannel | null>(null)
+  const screenVideoRef = useRef<HTMLVideoElement | null>(null)
+  const screenCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
+  const screenCaptureIntervalRef = useRef<number | null>(null)
 
   const canNavigateSlides = presentationSource?.canNavigate ?? true
   const numSlides = canNavigateSlides ? slides.length : Math.max(slides.length, 1)
@@ -76,6 +87,17 @@ export function HostMeetingRoom({
   useEffect(() => {
     setState(initialState)
   }, [initialState])
+
+  useEffect(() => {
+    const channel = createMeetingLiveChannel(meetingId, (payload) => {
+      setSharedScreen(payload.active ? payload : null)
+    })
+    liveChannelRef.current = channel
+    return () => {
+      void channel.unsubscribe()
+      liveChannelRef.current = null
+    }
+  }, [meetingId])
 
   const updateState = useCallback(
     async (patch: Partial<State>) => {
@@ -181,8 +203,99 @@ export function HostMeetingRoom({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ host_camera_frame: null }),
       }).catch(() => undefined)
+      stopLocalScreenShare()
     }
   }, [meetingId])
+
+  const stopLocalScreenShare = useCallback(async () => {
+    if (screenCaptureIntervalRef.current) {
+      window.clearInterval(screenCaptureIntervalRef.current)
+      screenCaptureIntervalRef.current = null
+    }
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop())
+    screenStreamRef.current = null
+    if (screenVideoRef.current) {
+      screenVideoRef.current.srcObject = null
+    }
+    const payload: MeetingLiveSharePayload = {
+      active: false,
+      frame: null,
+      sourceLabel: null,
+      updatedAt: Date.now(),
+    }
+    setSharedScreen(null)
+    if (liveChannelRef.current) {
+      await broadcastMeetingScreenShare(liveChannelRef.current, payload).catch(() => undefined)
+    }
+  }, [])
+
+  const startLocalScreenShare = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
+      setScreenShareError("Screen sharing is not available in this browser.")
+      return
+    }
+
+    setScreenShareError(null)
+    setStartingScreenShare(true)
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          frameRate: { ideal: 2, max: 4 },
+        },
+        audio: false,
+      })
+
+      await stopLocalScreenShare()
+
+      screenStreamRef.current = stream
+      const video = document.createElement("video")
+      video.muted = true
+      video.playsInline = true
+      video.srcObject = stream
+      screenVideoRef.current = video
+      await video.play()
+
+      const canvas = document.createElement("canvas")
+      screenCanvasRef.current = canvas
+
+      const publishFrame = async () => {
+        if (!screenVideoRef.current || !screenCanvasRef.current || !liveChannelRef.current) return
+        const sourceVideo = screenVideoRef.current
+        const sourceWidth = sourceVideo.videoWidth || 1280
+        const sourceHeight = sourceVideo.videoHeight || 720
+        const maxWidth = 1280
+        const scale = Math.min(1, maxWidth / sourceWidth)
+        canvas.width = Math.max(1, Math.floor(sourceWidth * scale))
+        canvas.height = Math.max(1, Math.floor(sourceHeight * scale))
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+        ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height)
+        const frame = canvas.toDataURL("image/jpeg", 0.72)
+        const payload: MeetingLiveSharePayload = {
+          active: true,
+          frame,
+          sourceLabel: "Local presentation window",
+          updatedAt: Date.now(),
+        }
+        setSharedScreen(payload)
+        await broadcastMeetingScreenShare(liveChannelRef.current, payload).catch(() => undefined)
+      }
+
+      void publishFrame()
+      screenCaptureIntervalRef.current = window.setInterval(() => {
+        void publishFrame()
+      }, 900)
+
+      const [videoTrack] = stream.getVideoTracks()
+      videoTrack?.addEventListener("ended", () => {
+        void stopLocalScreenShare()
+      })
+    } catch (error) {
+      setScreenShareError(error instanceof Error ? error.message : "Could not start local window sharing.")
+    } finally {
+      setStartingScreenShare(false)
+    }
+  }, [stopLocalScreenShare])
 
   return (
     <div className="flex h-full flex-col">
@@ -219,6 +332,31 @@ export function HostMeetingRoom({
               Go live
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (sharedScreen?.active) {
+                void stopLocalScreenShare()
+              } else {
+                void startLocalScreenShare()
+              }
+            }}
+            disabled={startingScreenShare}
+            className="border-white/30 text-white hover:bg-white/10"
+          >
+            {sharedScreen?.active ? (
+              <>
+                <MonitorOff className="mr-1 h-4 w-4" />
+                Stop local share
+              </>
+            ) : (
+              <>
+                <MonitorUp className="mr-1 h-4 w-4" />
+                {startingScreenShare ? "Starting..." : "Share local window"}
+              </>
+            )}
+          </Button>
           {meeting.status === "live" && (
             <Button size="sm" onClick={endMeeting} variant="destructive">
               <Square className="mr-1 h-4 w-4" />
@@ -254,10 +392,21 @@ export function HostMeetingRoom({
               )}
               {deck && (
                 <>
-                  <label className={`flex cursor-pointer items-center gap-1 text-xs ${uploading ? "pointer-events-none text-white/50" : "text-white/70 hover:text-white"}`}>
-                    <Upload className="h-3 w-3" />
-                    <span>{uploading ? "Uploading…" : "Upload file"}</span>
+                  <div className="space-y-2 rounded border border-white/10 bg-black/20 p-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-white/50">Slide deck</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={uploading}
+                      className="w-full border-white/20 bg-white/10 text-white hover:bg-white/20"
+                      onClick={() => deckUploadInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
+                      {uploading ? "Uploading..." : "Choose file to upload"}
+                    </Button>
                     <input
+                      ref={deckUploadInputRef}
                       type="file"
                       accept=".pdf,.ppt,.pptx,.pps,.ppsx,.key,.odp,.doc,.docx,application/pdf"
                       className="hidden"
@@ -277,8 +426,8 @@ export function HostMeetingRoom({
                         }
                       }}
                     />
-                  </label>
-                  <p className="text-[11px] text-white/45">PDF keeps slide sync. PowerPoint, Keynote, Docs, and similar files open as embedded viewers.</p>
+                  </div>
+                  <p className="text-[11px] text-white/45">Upload a PDF, PowerPoint, Keynote, or similar deck. PDFs keep slide-by-slide sync during the presentation.</p>
                   {onSaveLink && (
                     <div className="space-y-2 rounded border border-white/10 bg-black/20 p-2">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-white/50">Shared link</p>
@@ -328,7 +477,7 @@ export function HostMeetingRoom({
           {meeting.status === "draft" && decks.length === 0 && (
             <div className="space-y-2 border-b border-white/10 p-2">
               <p className="text-xs font-medium text-white/70">Deck</p>
-              <p className="text-xs text-white/50">Create a deck, then upload a file or paste a shared presentation link.</p>
+              <p className="text-xs text-white/50">Create a deck, then upload a slide deck or paste a shared presentation link.</p>
               {onCreateDeck && (
                 <button
                   type="button"
@@ -361,35 +510,53 @@ export function HostMeetingRoom({
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col p-4">
-          <SlideViewer presentationSource={presentationSource} pageIndex={activeSlideIndex} className="min-h-[320px] flex-1" />
-          <div className="mt-3 flex items-center justify-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={goPrev}
-              disabled={!canNavigateSlides || activeSlideIndex <= 0}
-              className="border-white/30 text-white"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-white/80">
-              {activeSlideIndex + 1} / {numSlides || 1}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={goNext}
-              disabled={!canNavigateSlides || activeSlideIndex >= numSlides - 1}
-              className="border-white/30 text-white"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          {!canNavigateSlides && (
+          {sharedScreen?.active && sharedScreen.frame ? (
+            <div className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-lg bg-black/30 p-4">
+              <img
+                src={sharedScreen.frame}
+                alt={sharedScreen.sourceLabel ?? "Shared local presentation"}
+                className="max-h-full max-w-full rounded-md object-contain shadow-lg"
+              />
+            </div>
+          ) : (
+            <SlideViewer presentationSource={presentationSource} pageIndex={activeSlideIndex} className="min-h-[320px] flex-1" />
+          )}
+          {!sharedScreen?.active && (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goPrev}
+                disabled={!canNavigateSlides || activeSlideIndex <= 0}
+                className="border-white/30 text-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-white/80">
+                {activeSlideIndex + 1} / {numSlides || 1}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goNext}
+                disabled={!canNavigateSlides || activeSlideIndex >= numSlides - 1}
+                className="border-white/30 text-white"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          {!sharedScreen?.active && !canNavigateSlides && (
             <p className="mt-2 text-center text-xs text-white/50">
               This source stays embedded for both sides. For synced page-by-page control, upload a PDF deck.
             </p>
           )}
+          {sharedScreen?.active && (
+            <p className="mt-2 text-center text-xs text-white/50">
+              Presenting a local PowerPoint, Keynote, or desktop window live. Advance slides in the shared app window.
+            </p>
+          )}
+          {screenShareError && <p className="mt-2 text-center text-xs text-red-300">{screenShareError}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-white/70">
             <label className="flex items-center gap-2">
               <input

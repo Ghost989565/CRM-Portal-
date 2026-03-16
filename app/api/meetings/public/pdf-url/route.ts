@@ -7,6 +7,8 @@ import { validateInviteToken } from "@/lib/meetings"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { buildPresentationSource, parsePresentationSourceMetadata } from "@/lib/presentation-source"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     if (!isSupabaseConfigured() || !supabase) {

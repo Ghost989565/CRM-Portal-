@@ -8,6 +8,8 @@ import { getWorkspaceForUser } from "@/lib/workspace"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import type { Client } from "@/lib/crm-data"
 
+export const dynamic = "force-dynamic"
+
 export interface SharedClient {
   id: string
   client: Client

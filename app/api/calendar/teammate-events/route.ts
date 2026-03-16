@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 import { getWorkspaceForUser } from "@/lib/workspace"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
+export const dynamic = "force-dynamic"
+
 function rowToEvent(row: Record<string, unknown>) {
   return {
     id: row.id,

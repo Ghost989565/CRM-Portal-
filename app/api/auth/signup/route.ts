@@ -5,6 +5,7 @@
  * Sends SMS verification code to user's phone. User must verify before accessing the app.
  */
 import { createClient } from "@/lib/supabase/server"
+import { hasSupabaseBrowserEnv } from "@/lib/supabase/env"
 import { supabase } from "@/lib/supabase"
 import { validatePhone } from "@/lib/sms-utils"
 import { NextResponse } from "next/server"
@@ -43,7 +44,7 @@ async function sendVerificationSms(to: string, code: string): Promise<{ ok: bool
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    if (!hasSupabaseBrowserEnv()) {
       return NextResponse.json(
         { error: "Sign-up is not configured. Please contact support." },
         { status: 503 }

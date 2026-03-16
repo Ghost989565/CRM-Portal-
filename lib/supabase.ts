@@ -3,19 +3,16 @@
  * NEVER import this in client components - it exposes the service role key.
  */
 import { createClient } from "@supabase/supabase-js"
+import { getSupabaseAdminEnv, isSupabaseFullyConfigured } from "@/lib/supabase/env"
 
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
-  return createClient(url, key)
+  const env = getSupabaseAdminEnv()
+  if (!env) return null
+  return createClient(env.url, env.serviceRoleKey)
 }
 
 export const supabase = getSupabaseClient()
 
 export function isSupabaseConfigured(): boolean {
-  return !!(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
+  return isSupabaseFullyConfigured()
 }

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { getSupabaseBrowserEnv } from "@/lib/supabase/env"
 
 const PROTECTED_PATHS = ["/portal", "/join-team"]
 const ALLOW_UNVERIFIED = ["/verify-phone", "/complete-profile", "/login", "/signup", "/forgot-password", "/join-invite"]
@@ -9,13 +10,12 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   })
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) {
+  const env = getSupabaseBrowserEnv()
+  if (!env) {
     return response
   }
 
-  const supabase = createServerClient(url, key, {
+  const supabase = createServerClient(env.url, env.anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll()

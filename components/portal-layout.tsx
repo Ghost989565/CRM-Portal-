@@ -36,7 +36,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
       >
         <main
           key={pathname}
-          className={`min-h-screen p-6 lg:p-8 transition-opacity duration-300 ${isLoaded ? "animate-fade-in opacity-100" : "opacity-0"}`}
+          className={`min-h-screen p-6 lg:p-8 transition-opacity duration-300 ${isLoaded ? "animate-fade-in opacity-100" : "opacity-100"}`}
         >
           {children}
         </main>

@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase"
 import { isSupabaseConfigured } from "@/lib/supabase"
 import { randomBytes } from "crypto"
 
+export const dynamic = "force-dynamic"
+
 function generateToken(): string {
   return randomBytes(24).toString("base64url")
 }
