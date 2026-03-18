@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { SlideViewer } from "./slide-viewer"
 import { ScriptPanel } from "./script-panel"
 import { CameraPreview } from "./camera-preview"
-import { ChevronLeft, ChevronRight, Copy, Radio, Square, Play, Settings2, Upload, MonitorUp, MonitorOff } from "lucide-react"
+import { ChevronLeft, ChevronRight, Copy, Radio, Square, Play, Settings2, Upload, MonitorUp, MonitorOff, RefreshCw } from "lucide-react"
 import type { PresentationSource } from "@/lib/presentation-source"
 import { getRenderableSlideNotes } from "@/lib/presentation-source"
 import { broadcastMeetingScreenShare, createMeetingLiveChannel, type MeetingLiveSharePayload } from "@/lib/meeting-live-channel"
@@ -55,9 +55,11 @@ export function HostMeetingRoom({
   onCreateDeck?: () => void
 }) {
   const [state, setState] = useState(initialState)
+  const [showSetup, setShowSetup] = useState(meeting.status === "draft")
   const [scriptFontSize, setScriptFontSize] = useState(16)
   const [scriptDark, setScriptDark] = useState(false)
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null)
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -148,18 +150,52 @@ export function HostMeetingRoom({
     } catch {}
   }
 
-  const createInvite = useCallback(async () => {
+  const loadInvite = useCallback(async () => {
+    setInviteError(null)
+    setInviteLoading(true)
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/invite`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
+          setInviteUrl(null)
+          setInviteExpiresAt(null)
+          return
+        }
+        setInviteError(data?.error ?? "Could not load invite")
+        return
+      }
+      if (data.joinUrl) {
+        setInviteUrl(data.joinUrl)
+        setInviteExpiresAt(data?.invite?.expires_at ?? null)
+        setCopied(false)
+      } else {
+        setInviteError(data?.error ?? "Could not load invite")
+      }
+    } catch {
+      setInviteError("Network error")
+    } finally {
+      setInviteLoading(false)
+    }
+  }, [meetingId])
+
+  const createInvite = useCallback(async (regenerate = false) => {
     setInviteError(null)
     setInviteLoading(true)
     try {
       const res = await fetch(`/api/meetings/${meetingId}/invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expiresInHours: 24 }),
+        body: JSON.stringify({ expiresInHours: 24, regenerate }),
       })
       const data = await res.json()
-      if (data.joinUrl) setInviteUrl(data.joinUrl)
-      else setInviteError(data?.error ?? "Could not create link")
+      if (res.ok && data.joinUrl) {
+        setInviteUrl(data.joinUrl)
+        setInviteExpiresAt(data?.invite?.expires_at ?? null)
+        setCopied(false)
+      } else {
+        setInviteError(data?.error ?? "Could not create link")
+      }
     } catch {
       setInviteError("Network error")
     } finally {
@@ -168,9 +204,8 @@ export function HostMeetingRoom({
   }, [meetingId])
 
   useEffect(() => {
-    if (inviteUrl || inviteLoading) return
-    createInvite()
-  }, [inviteUrl, inviteLoading, createInvite])
+    void loadInvite()
+  }, [loadInvite])
 
   const copyInvite = () => {
     if (!inviteUrl) return
@@ -298,34 +333,65 @@ export function HostMeetingRoom({
   }, [stopLocalScreenShare])
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-white/20 bg-black/30 p-3">
-        <div className="flex items-center gap-3">
+    <div className="flex h-full flex-col bg-[#09111f]">
+      <header className="flex items-center justify-between border-b border-white/10 bg-black/20 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Link href="/portal/meetings">
             <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
               ← Presentations
             </Button>
           </Link>
-          <h1 className="truncate text-lg font-semibold text-white">{meeting.title}</h1>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Host room</p>
+            <h1 className="truncate text-lg font-semibold text-white">{meeting.title}</h1>
+          </div>
           {meeting.status === "live" && (
-            <span className="flex items-center gap-1 rounded bg-green-500/30 px-2 py-0.5 text-sm text-green-300">
+            <span className="flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-1 text-xs text-green-300">
               <Radio className="h-3 w-3" />
               Live
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {inviteUrl ? (
-            <Button size="sm" variant="outline" onClick={copyInvite} className="border-white/30 text-white hover:bg-white/10">
-              <Copy className="mr-1 h-4 w-4" />
-              {copied ? "Copied!" : "Copy invite link"}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {meeting.status === "draft" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowSetup((value) => !value)}
+              className="border-white/30 text-white hover:bg-white/10"
+            >
+              <Settings2 className="mr-1 h-4 w-4" />
+              {showSetup ? "Hide setup" : "Setup"}
             </Button>
+          )}
+          {inviteUrl ? (
+            <>
+              <Button size="sm" variant="outline" onClick={copyInvite} className="border-white/30 text-white hover:bg-white/10">
+                <Copy className="mr-1 h-4 w-4" />
+                {copied ? "Copied" : "Invite link"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => createInvite(true)}
+                disabled={inviteLoading}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Regenerate
+              </Button>
+            </>
           ) : (
             <Button size="sm" variant="outline" onClick={createInvite} disabled={inviteLoading} className="border-white/30 text-white hover:bg-white/10">
               {inviteLoading ? "..." : "Generate invite link"}
             </Button>
           )}
           {inviteError && <span className="text-xs text-red-300">{inviteError}</span>}
+          {!inviteError && inviteExpiresAt && (
+            <span className="text-xs text-white/45">
+              Expires {new Date(inviteExpiresAt).toLocaleDateString()} {new Date(inviteExpiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            </span>
+          )}
           {meeting.status === "draft" && (
             <Button size="sm" onClick={startMeeting} className="bg-green-600 text-white hover:bg-green-700">
               <Play className="mr-1 h-4 w-4" />
@@ -366,198 +432,200 @@ export function HostMeetingRoom({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-48 flex-col overflow-auto border-r border-white/20 bg-black/20">
-          {meeting.status === "draft" && decks.length > 0 && (
-            <div className="space-y-2 border-b border-white/10 p-2">
-              <p className="text-xs font-medium text-white/70">Deck</p>
-              <select
-                value={meeting.deck_id ?? ""}
-                onChange={(e) => {
-                  if (e.target.value) onSelectDeck?.(e.target.value)
-                }}
-                className="w-full rounded border border-white/20 bg-white/10 px-2 py-1 text-xs text-white"
-              >
-                <option value="">Select deck</option>
-                {decks.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.title}
-                  </option>
-                ))}
-              </select>
-              {onCreateDeck && (
-                <button type="button" onClick={onCreateDeck} className="w-full text-xs text-white/80 hover:text-white">
-                  + New deck
-                </button>
-              )}
-              {deck && (
-                <>
-                  <div className="space-y-2 rounded border border-white/10 bg-black/20 p-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-white/50">Slide deck</p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={uploading}
-                      className="w-full border-white/20 bg-white/10 text-white hover:bg-white/20"
-                      onClick={() => deckUploadInputRef.current?.click()}
-                    >
-                      <Upload className="h-4 w-4" />
-                      {uploading ? "Uploading..." : "Choose file to upload"}
-                    </Button>
-                    <input
-                      ref={deckUploadInputRef}
-                      type="file"
-                      accept=".pdf,.ppt,.pptx,.pps,.ppsx,.key,.odp,.doc,.docx,application/pdf"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        e.target.value = ""
-                        if (!file || !onUploadDeck) return
-                        setUploadError(null)
-                        setUploading(true)
-                        try {
-                          await onUploadDeck(deck.id, file)
-                        } catch (error) {
-                          setUploadError(error instanceof Error ? error.message : "Upload failed")
-                        } finally {
-                          setUploading(false)
-                        }
-                      }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-white/45">Upload a PDF, PowerPoint, Keynote, or similar deck. PDFs keep slide-by-slide sync during the presentation.</p>
-                  {onSaveLink && (
-                    <div className="space-y-2 rounded border border-white/10 bg-black/20 p-2">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-white/50">Shared link</p>
-                      <input
-                        type="url"
-                        value={linkInput}
-                        onChange={(e) => setLinkInput(e.target.value)}
-                        placeholder="Paste Google Slides, Doc, Canva, iCloud, or Office link"
-                        className="w-full rounded border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white placeholder:text-white/35"
-                      />
-                      <input
-                        type="text"
-                        value={linkLabel}
-                        onChange={(e) => setLinkLabel(e.target.value)}
-                        placeholder="Optional label"
-                        className="w-full rounded border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white placeholder:text-white/35"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={savingLink || !linkInput.trim()}
-                        className="w-full bg-white/10 text-xs text-white hover:bg-white/20"
-                        onClick={async () => {
-                          if (!deck || !onSaveLink || !linkInput.trim()) return
-                          setUploadError(null)
-                          setSavingLink(true)
-                          try {
-                            await onSaveLink(deck.id, linkInput.trim(), linkLabel.trim() || undefined)
-                            setLinkInput("")
-                            setLinkLabel("")
-                          } catch (error) {
-                            setUploadError(error instanceof Error ? error.message : "Could not save link")
-                          } finally {
-                            setSavingLink(false)
-                          }
-                        }}
-                      >
-                        {savingLink ? "Saving..." : "Use shared link"}
-                      </Button>
-                    </div>
-                  )}
-                  {uploadError && <p className="text-xs text-red-300">{uploadError}</p>}
-                </>
-              )}
-            </div>
-          )}
-          {meeting.status === "draft" && decks.length === 0 && (
-            <div className="space-y-2 border-b border-white/10 p-2">
-              <p className="text-xs font-medium text-white/70">Deck</p>
-              <p className="text-xs text-white/50">Create a deck, then upload a slide deck or paste a shared presentation link.</p>
-              {onCreateDeck && (
-                <button
-                  type="button"
-                  onClick={onCreateDeck}
-                  className="w-full rounded border border-white/20 bg-white/10 px-2 py-1.5 text-xs text-white hover:bg-white/20"
-                >
-                  + New deck
-                </button>
-              )}
-            </div>
-          )}
-          <p className="p-2 text-xs font-medium text-white/70">Slides</p>
-          <div className="flex-1 overflow-auto">
-            {slides.map((slide, index) => (
-              <button
-                key={slide.id}
-                type="button"
-                onClick={() => updateState({ current_slide_index: index })}
-              className={`w-full border-l-2 px-2 py-1.5 text-left text-sm ${
-                  activeSlideIndex === index
-                    ? "border-white bg-white/10 text-white"
-                    : "border-transparent text-white/70 hover:bg-white/5"
-                }`}
-              >
-                {index + 1}
-              </button>
-            ))}
-            {slides.length === 0 && <p className="px-2 py-2 text-xs text-white/50">No slides</p>}
-          </div>
-        </aside>
+      <div className="flex min-h-0 flex-1 gap-4 p-4">
+        <main className="flex min-w-0 flex-1 flex-col gap-4">
+          {meeting.status === "draft" && showSetup && (
+            <section className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/45">Deck</p>
+                {decks.length > 0 ? (
+                  <select
+                    value={meeting.deck_id ?? ""}
+                    onChange={(e) => {
+                      if (e.target.value) onSelectDeck?.(e.target.value)
+                    }}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white"
+                  >
+                    <option value="">Select deck</option>
+                    {decks.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/55">
+                    No deck yet
+                  </p>
+                )}
+                {onCreateDeck && (
+                  <button type="button" onClick={onCreateDeck} className="text-sm text-white/70 hover:text-white">
+                    + Create new deck
+                  </button>
+                )}
+              </div>
 
-        <main className="flex min-w-0 flex-1 flex-col p-4">
-          {sharedScreen?.active && sharedScreen.frame ? (
-            <div className="flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-lg bg-black/30 p-4">
-              <img
-                src={sharedScreen.frame}
-                alt={sharedScreen.sourceLabel ?? "Shared local presentation"}
-                className="max-h-full max-w-full rounded-md object-contain shadow-lg"
-              />
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/45">Add content</p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={uploading || !deck}
+                    className="border-white/15 bg-white/5 text-white hover:bg-white/10"
+                    onClick={() => deckUploadInputRef.current?.click()}
+                  >
+                    <Upload className="mr-1 h-4 w-4" />
+                    {uploading ? "Uploading..." : "Upload file"}
+                  </Button>
+                  <input
+                    ref={deckUploadInputRef}
+                    type="file"
+                    accept=".pdf,.ppt,.pptx,.pps,.ppsx,.key,.odp,.doc,.docx,application/pdf"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      e.target.value = ""
+                      if (!file || !deck || !onUploadDeck) return
+                      setUploadError(null)
+                      setUploading(true)
+                      try {
+                        await onUploadDeck(deck.id, file)
+                      } catch (error) {
+                        setUploadError(error instanceof Error ? error.message : "Upload failed")
+                      } finally {
+                        setUploading(false)
+                      }
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-white/40">Keep it simple: PDF works best in-app. Shared Google Slides links also work well.</p>
+              </div>
+
+              {onSaveLink && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/45">Shared link</p>
+                  <input
+                    type="url"
+                    value={linkInput}
+                    onChange={(e) => setLinkInput(e.target.value)}
+                    placeholder="Paste Google Slides or shared link"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/28"
+                  />
+                  <input
+                    type="text"
+                    value={linkLabel}
+                    onChange={(e) => setLinkLabel(e.target.value)}
+                    placeholder="Optional label"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/28"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={savingLink || !deck || !linkInput.trim()}
+                    className="w-full bg-white/10 text-white hover:bg-white/15"
+                    onClick={async () => {
+                      if (!deck || !onSaveLink || !linkInput.trim()) return
+                      setUploadError(null)
+                      setSavingLink(true)
+                      try {
+                        await onSaveLink(deck.id, linkInput.trim(), linkLabel.trim() || undefined)
+                        setLinkInput("")
+                        setLinkLabel("")
+                      } catch (error) {
+                        setUploadError(error instanceof Error ? error.message : "Could not save link")
+                      } finally {
+                        setSavingLink(false)
+                      }
+                    }}
+                  >
+                    {savingLink ? "Saving..." : "Save link"}
+                  </Button>
+                </div>
+              )}
+              {uploadError && <p className="text-sm text-red-300 md:col-span-full">{uploadError}</p>}
+            </section>
+          )}
+
+          <section className="flex min-h-[320px] flex-1 flex-col rounded-3xl border border-white/10 bg-black/25 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">Stage</p>
+                <p className="text-sm text-white/70">
+                  {sharedScreen?.active ? "Live shared presentation" : presentationSource ? "Current deck" : "Add a deck to begin"}
+                </p>
+              </div>
+              {!sharedScreen?.active && numSlides > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={goPrev}
+                    disabled={!canNavigateSlides || activeSlideIndex <= 0}
+                    className="border-white/20 text-white"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-16 text-center text-sm text-white/75">
+                    {activeSlideIndex + 1} / {numSlides}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={goNext}
+                    disabled={!canNavigateSlides || activeSlideIndex >= numSlides - 1}
+                    className="border-white/20 text-white"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
-          ) : (
-            <SlideViewer presentationSource={presentationSource} pageIndex={activeSlideIndex} className="min-h-[320px] flex-1" />
-          )}
-          {!sharedScreen?.active && (
-            <div className="mt-3 flex items-center justify-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={goPrev}
-                disabled={!canNavigateSlides || activeSlideIndex <= 0}
-                className="border-white/30 text-white"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-white/80">
-                {activeSlideIndex + 1} / {numSlides || 1}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={goNext}
-                disabled={!canNavigateSlides || activeSlideIndex >= numSlides - 1}
-                className="border-white/30 text-white"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+              {sharedScreen?.active && sharedScreen.frame ? (
+                <div className="flex h-full items-center justify-center overflow-hidden p-4">
+                  <img
+                    src={sharedScreen.frame}
+                    alt={sharedScreen.sourceLabel ?? "Shared local presentation"}
+                    className="max-h-full max-w-full rounded-md object-contain shadow-lg"
+                  />
+                </div>
+              ) : (
+                <SlideViewer presentationSource={presentationSource} pageIndex={activeSlideIndex} className="h-full min-h-[320px]" />
+              )}
             </div>
-          )}
-          {!sharedScreen?.active && !canNavigateSlides && (
-            <p className="mt-2 text-center text-xs text-white/50">
-              This source stays embedded for both sides. For synced page-by-page control, upload a PDF deck.
-            </p>
-          )}
-          {sharedScreen?.active && (
-            <p className="mt-2 text-center text-xs text-white/50">
-              Presenting a local PowerPoint, Keynote, or desktop window live. Advance slides in the shared app window.
-            </p>
-          )}
-          {screenShareError && <p className="mt-2 text-center text-xs text-red-300">{screenShareError}</p>}
-          <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-white/70">
+
+            {slides.length > 1 && (
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                {slides.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => updateState({ current_slide_index: index })}
+                    className={`min-w-12 rounded-xl border px-3 py-2 text-sm transition ${
+                      activeSlideIndex === index
+                        ? "border-white/40 bg-white/12 text-white"
+                        : "border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!sharedScreen?.active && !canNavigateSlides && (
+              <p className="mt-3 text-center text-xs text-white/45">
+                Use PDF or Google Slides for the cleanest in-app presenting.
+              </p>
+            )}
+            {screenShareError && <p className="mt-3 text-center text-xs text-red-300">{screenShareError}</p>}
+          </section>
+
+          <div className="flex flex-wrap items-center gap-5 px-2 text-sm text-white/65">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -574,29 +642,27 @@ export function HostMeetingRoom({
                 onChange={(e) => updateState({ show_host_camera: e.target.checked })}
                 className="rounded border-white/30"
               />
-              Client sees presenter camera
+              Show presenter camera
             </label>
           </div>
         </main>
 
-        <aside className="flex w-72 flex-col gap-3 border-l border-white/20 bg-black/20 p-3">
-          <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-white/60" />
-            <span className="text-sm font-medium text-white/80">Agent panel</span>
+        <aside className="flex w-72 flex-col gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">Presenter tools</p>
+            <p className="mt-1 text-sm text-white/65">Private notes and camera preview.</p>
           </div>
-          <CameraPreview className="h-32" onFrame={publishCameraFrame} />
-          <p className="text-xs text-white/50">The client only sees the slide deck and your camera. This script stays private to the agent.</p>
+          <CameraPreview className="h-36 rounded-2xl" onFrame={publishCameraFrame} />
           <ScriptPanel
             notes={currentNotes}
             darkMode={scriptDark}
             fontSize={scriptFontSize}
             onFontSizeChange={(delta) => setScriptFontSize((size) => Math.max(12, Math.min(24, size + delta)))}
+            className="min-h-0 flex-1"
           />
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setScriptDark((value) => !value)} className="border-white/30 text-xs text-white">
-              {scriptDark ? "Light" : "Dark"} mode
-            </Button>
-          </div>
+          <Button size="sm" variant="outline" onClick={() => setScriptDark((value) => !value)} className="border-white/20 text-white">
+            {scriptDark ? "Light script" : "Dark script"}
+          </Button>
         </aside>
       </div>
     </div>

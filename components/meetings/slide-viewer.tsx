@@ -116,7 +116,7 @@ export function SlideViewer({ presentationSource, pageIndex, className = "" }: S
         <div>
           <p className="text-lg font-medium text-white">{presentationSource.label}</p>
           <p className="mt-2 text-sm text-white/60">
-            This source opens in a separate tab because it cannot be embedded directly.
+            {presentationSource.note ?? "This source opens in a separate tab because it cannot be embedded directly."}
           </p>
         </div>
         {presentationSource.url && (
@@ -127,7 +127,7 @@ export function SlideViewer({ presentationSource, pageIndex, className = "" }: S
             className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20"
           >
             <ExternalLink className="h-4 w-4" />
-            Open presentation
+            Open source
           </a>
         )}
       </div>

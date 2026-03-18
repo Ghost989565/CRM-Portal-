@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import type React from "react"
 import { usePathname } from "next/navigation"
 import { PortalSidebar } from "@/components/portal-sidebar"
+import { BeamsBackground } from "@/components/ui/beams-background"
 import { useSidebar } from "@/contexts/sidebar-context"
 
 interface PortalLayoutProps {
@@ -24,9 +25,11 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const sidebarWidth = isCollapsed ? "w-16" : "w-56"
 
   return (
-    <div className="portal-shell relative min-h-screen w-full overflow-hidden bg-slate-950 text-slate-50">
+    <BeamsBackground intensity="medium" className="portal-shell text-slate-50">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%),radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_80%_10%,rgba(34,197,94,0.08),transparent_24%),linear-gradient(180deg,rgba(7,10,18,0.18),rgba(7,10,18,0.58))]" />
+
       <div className={`fixed left-0 top-0 z-50 portal-sidebar-wrapper ${sidebarWidth} h-screen pointer-events-none transition-all duration-300 ease-in-out`}>
-        <div className="portal-sidebar-surface pointer-events-auto h-full w-full border-r border-slate-800/80 bg-slate-900">
+        <div className="portal-sidebar-surface pointer-events-auto h-full w-full border-r border-white/10 bg-slate-950/58 backdrop-blur-xl">
           <PortalSidebar />
         </div>
       </div>
@@ -41,6 +44,6 @@ export function PortalLayout({ children }: PortalLayoutProps) {
           {children}
         </main>
       </div>
-    </div>
+    </BeamsBackground>
   )
 }

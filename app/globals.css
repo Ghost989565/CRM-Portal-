@@ -142,12 +142,14 @@
 
 /* Portal surfaces */
 .portal-shell {
-  background: #0f172a;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 32%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.28), rgba(2, 6, 23, 0.56));
 }
 
 .portal-sidebar-wrapper [data-calendar-sidebar],
 .calendar-page-sidebar [data-calendar-sidebar] {
-  background: #111827 !important;
+  background: rgba(15, 23, 42, 0.62) !important;
   border-color: rgba(148, 163, 184, 0.16) !important;
 }
 
@@ -186,18 +188,18 @@
 
 .portal-sidebar-wrapper [data-calendar-sidebar] .bg-sidebar,
 .calendar-page-sidebar [data-calendar-sidebar] .bg-sidebar {
-  background: #111827 !important;
+  background: rgba(15, 23, 42, 0.62) !important;
 }
 
 .portal-sidebar-wrapper ~ div main {
   color: #f8fafc;
   --background: #0f172a !important;
-  --card: #172033 !important;
+  --card: rgba(15, 23, 42, 0.62) !important;
   --card-foreground: #f8fafc !important;
-  --popover: #172033 !important;
+  --popover: rgba(15, 23, 42, 0.82) !important;
   --popover-foreground: #f8fafc !important;
-  --input: #111827 !important;
-  --muted: rgba(30, 41, 59, 0.92) !important;
+  --input: rgba(15, 23, 42, 0.76) !important;
+  --muted: rgba(30, 41, 59, 0.68) !important;
   --muted-foreground: #cbd5e1 !important;
   --border: rgba(148, 163, 184, 0.18) !important;
 }
@@ -216,22 +218,24 @@
 .portal-sidebar-wrapper ~ div main [role="tabpanel"] > div[class*="rounded"],
 .portal-sidebar-wrapper ~ div main [class*="bg-white/"],
 .portal-sidebar-wrapper ~ div main [class*="bg-black/"] {
-  background: #172033 !important;
+  background: rgba(15, 23, 42, 0.62) !important;
   color: #f8fafc !important;
   border-color: rgba(148, 163, 184, 0.18) !important;
+  backdrop-filter: blur(18px);
 }
 
 .portal-sidebar-wrapper ~ div main .bg-muted,
 .portal-sidebar-wrapper ~ div main [data-slot="tabs-list"] {
-  background: rgba(30, 41, 59, 0.92) !important;
+  background: rgba(30, 41, 59, 0.58) !important;
   border-color: rgba(148, 163, 184, 0.18) !important;
+  backdrop-filter: blur(14px);
 }
 
 .portal-sidebar-wrapper ~ div main [data-slot="input"],
 .portal-sidebar-wrapper ~ div main input,
 .portal-sidebar-wrapper ~ div main textarea,
 .portal-sidebar-wrapper ~ div main select {
-  background: #111827 !important;
+  background: rgba(15, 23, 42, 0.76) !important;
   color: #f8fafc !important;
   border-color: rgba(148, 163, 184, 0.24) !important;
 }
@@ -244,9 +248,10 @@
 .portal-sidebar-wrapper ~ div main [role="dialog"],
 .portal-sidebar-wrapper ~ div main [data-radix-dialog-content],
 .portal-sidebar-wrapper ~ div main [data-radix-sheet-content] {
-  background: #111827 !important;
+  background: rgba(15, 23, 42, 0.9) !important;
   color: #f8fafc !important;
   border-color: rgba(148, 163, 184, 0.24) !important;
+  backdrop-filter: blur(20px);
 }
 
 .portal-sidebar-wrapper ~ div main [data-slot="tabs-trigger"][data-state="active"],

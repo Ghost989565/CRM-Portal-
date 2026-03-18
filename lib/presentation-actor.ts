@@ -13,6 +13,10 @@ export type PresentationActor = {
 
 let cachedDevPresentationUserId: string | null = null
 
+function allowLocalPresentationActor() {
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_LOCAL_PRESENTATION_ACTOR === "1"
+}
+
 async function ensureDevPresentationUser(): Promise<string | null> {
   if (!supabaseAdmin) return null
   if (cachedDevPresentationUserId) return cachedDevPresentationUserId
@@ -78,7 +82,7 @@ export async function resolvePresentationActor(): Promise<PresentationActor | nu
     }
   }
 
-  if (process.env.NODE_ENV !== "development") {
+  if (!allowLocalPresentationActor()) {
     return null
   }
 

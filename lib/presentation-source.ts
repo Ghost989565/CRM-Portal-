@@ -7,6 +7,7 @@ export type PresentationSource = {
   label: string
   canNavigate: boolean
   fileName?: string | null
+  note?: string | null
 }
 
 type SourceMetadata = {
@@ -115,6 +116,7 @@ export function buildPresentationSource(params: {
         embedUrl: null,
         label,
         canNavigate: true,
+        note: null,
       }
     }
     return {
@@ -123,6 +125,7 @@ export function buildPresentationSource(params: {
       embedUrl: toEmbedUrl(url),
       label,
       canNavigate: false,
+      note: null,
     }
   }
 
@@ -138,28 +141,31 @@ export function buildPresentationSource(params: {
         label,
         canNavigate: true,
         fileName: metadata.fileName ?? null,
+        note: null,
       }
     }
 
     if (OFFICE_EXTENSIONS.has(extension)) {
       return {
-        kind: "embed",
+        kind: "link",
         url: rawUrl,
-        embedUrl: `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`,
+        embedUrl: null,
         label,
         canNavigate: false,
         fileName: metadata.fileName ?? null,
+        note: "For reliable in-app presenting, export this deck to PDF first. Google Slides links also work well without storing files long-term.",
       }
     }
 
     if (GOOGLE_VIEWER_EXTENSIONS.has(extension)) {
       return {
-        kind: "embed",
+        kind: "link",
         url: rawUrl,
-        embedUrl: `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(rawUrl)}`,
+        embedUrl: null,
         label,
         canNavigate: false,
         fileName: metadata.fileName ?? null,
+        note: "Keynote and OpenDocument decks do not embed reliably in-browser. Export to PDF for in-app presenting, or use a shared Google Slides link.",
       }
     }
 
@@ -170,6 +176,7 @@ export function buildPresentationSource(params: {
       label,
       canNavigate: false,
       fileName: metadata.fileName ?? null,
+      note: "This file type opens as a source file. PDF is the best format for in-app slide presenting.",
     }
   }
 
@@ -183,6 +190,7 @@ export function buildPresentationSource(params: {
       embedUrl: null,
       label: "PDF deck",
       canNavigate: true,
+      note: null,
     }
   }
 
@@ -192,5 +200,6 @@ export function buildPresentationSource(params: {
     embedUrl: null,
     label: "Presentation source",
     canNavigate: false,
+    note: "This source cannot be rendered as synced slides. PDF works best for in-app presenting.",
   }
 }

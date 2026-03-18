@@ -118,7 +118,7 @@ export function PortalSidebar() {
       <div
         data-calendar-sidebar
         className={cn(
-          "fixed inset-y-0 left-0 z-40 bg-sidebar border-r border-sidebar-border transform transition-all duration-200 ease-in-out lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 border-r border-sidebar-border bg-sidebar/85 backdrop-blur-xl transform transition-all duration-200 ease-in-out lg:translate-x-0",
           isCollapsed ? "w-16" : "w-56",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}

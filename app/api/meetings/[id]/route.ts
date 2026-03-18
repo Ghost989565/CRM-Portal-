@@ -1,6 +1,7 @@
 /**
  * GET /api/meetings/[id] - get meeting (host only)
  * PATCH /api/meetings/[id] - update meeting (host): title, status, deck_id
+ * DELETE /api/meetings/[id] - delete meeting (host)
  */
 import { NextResponse } from "next/server"
 import { isSupabaseConfigured } from "@/lib/supabase"
@@ -95,5 +96,44 @@ export async function PATCH(
   } catch (err) {
     console.error("[api/meetings/[id]] PATCH error:", err)
     return NextResponse.json({ error: "Failed to update meeting" }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json({ error: "Not configured" }, { status: 503 })
+    }
+    const actor = await resolvePresentationActor()
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const { data: existing, error: fetchError } = await actor.client
+      .from("meetings")
+      .select("id, host_user_id")
+      .eq("id", id)
+      .single()
+
+    if (fetchError || !existing || existing.host_user_id !== actor.userId) {
+      return NextResponse.json({ error: "Meeting not found" }, { status: 404 })
+    }
+
+    const { error } = await actor.client
+      .from("meetings")
+      .delete()
+      .eq("id", id)
+
+    if (error) {
+      console.error("[api/meetings/[id]] DELETE error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error("[api/meetings/[id]] DELETE error:", err)
+    return NextResponse.json({ error: "Failed to delete meeting" }, { status: 500 })
   }
 }

@@ -88,28 +88,31 @@ export function ClientMeetingRoom({
   }
 
   return (
-    <div className="flex flex-col h-full bg-black/50">
-      <header className="flex items-center justify-between p-3 border-b border-white/20">
-        <h1 className="text-lg font-semibold text-white truncate">{initialMeeting.title}</h1>
-        <div className="flex items-center gap-2 text-sm text-white/70">
+    <div className="flex h-full flex-col bg-[#09111f]">
+      <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Presentation</p>
+          <h1 className="truncate text-lg font-semibold text-white">{initialMeeting.title}</h1>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-white/65">
           {connected ? (
             <span className="flex items-center gap-1">
               <Wifi className="h-4 w-4 text-green-400" />
-              Connected
+              Live
             </span>
           ) : (
             <span className="flex items-center gap-1">
               <WifiOff className="h-4 w-4" />
-              Reconnecting...
+              Reconnecting
             </span>
           )}
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 p-4">
-        <div className="relative flex-1 min-h-[400px]">
+      <main className="flex min-h-0 flex-1 flex-col p-4">
+        <div className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[0_18px_50px_rgba(0,0,0,0.28)] min-h-[400px]">
           {sharedScreen?.active && sharedScreen.frame ? (
-            <div className="flex h-full min-h-[400px] items-center justify-center overflow-hidden rounded-lg bg-black/30">
+            <div className="flex h-full min-h-[400px] items-center justify-center overflow-hidden bg-black/30">
               <img
                 src={sharedScreen.frame}
                 alt={sharedScreen.sourceLabel ?? "Shared presentation"}
@@ -124,49 +127,47 @@ export function ClientMeetingRoom({
             />
           )}
           {(state.show_host_camera ?? true) && state.host_camera_frame && (
-            <div className="absolute bottom-4 right-4 w-56 overflow-hidden rounded-xl border border-white/20 bg-black/70 shadow-2xl">
-              <div className="border-b border-white/10 px-3 py-2 text-xs uppercase tracking-wide text-white/60">
-                Presenter
-              </div>
+            <div className="absolute bottom-4 right-4 w-48 overflow-hidden rounded-2xl border border-white/15 bg-black/70 shadow-2xl backdrop-blur">
               <img
                 src={state.host_camera_frame}
                 alt="Presenter camera"
-                className="h-36 w-full object-cover"
+                className="h-28 w-full object-cover"
               />
+              <div className="px-3 py-2 text-xs text-white/65">Presenter</div>
             </div>
           )}
         </div>
         {!sharedScreen?.active && state.allow_client_navigation && canNavigateSlides && numSlides > 0 && (
-          <div className="flex items-center justify-center gap-2 mt-3">
+          <div className="mt-4 flex items-center justify-center gap-3">
             <button
               type="button"
               onClick={goPrev}
               disabled={activeSlideIndex <= 0}
-              className="p-2 rounded-lg bg-white/10 text-white disabled:opacity-50 hover:bg-white/20"
+              className="rounded-xl border border-white/10 bg-white/5 p-2 text-white disabled:opacity-50 hover:bg-white/10"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <span className="text-white/80 text-sm">
+            <span className="min-w-20 text-center text-sm text-white/75">
               {activeSlideIndex + 1} / {numSlides}
             </span>
             <button
               type="button"
               onClick={goNext}
               disabled={activeSlideIndex >= numSlides - 1}
-              className="p-2 rounded-lg bg-white/10 text-white disabled:opacity-50 hover:bg-white/20"
+              className="rounded-xl border border-white/10 bg-white/5 p-2 text-white disabled:opacity-50 hover:bg-white/10"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         )}
         {!sharedScreen?.active && !canNavigateSlides && (
-          <p className="mt-3 text-center text-xs text-white/50">
-            This presentation is being shown as a shared embedded source.
+          <p className="mt-4 text-center text-xs text-white/45">
+            Shared presentation source
           </p>
         )}
         {sharedScreen?.active && (
-          <p className="mt-3 text-center text-xs text-white/50">
-            The presenter is sharing a local presentation window live.
+          <p className="mt-4 text-center text-xs text-white/45">
+            Live shared presentation
           </p>
         )}
       </main>
