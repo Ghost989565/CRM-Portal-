@@ -1,39 +1,32 @@
 /**
  * POST /api/sms/send
  *
- * Sends an SMS via Twilio. Requires workspace membership and active subscription.
+ * Sends an SMS via Telnyx. Requires workspace membership and active subscription.
  * Uses included SMS first, then credit balance. Blocks if over limit.
  *
  * Request JSON: { to: string, message: string }
  */
 import { NextResponse } from "next/server"
-import Twilio from "twilio"
 import { createClient } from "@/lib/supabase/server"
 import { validatePhone, validateMessage } from "@/lib/sms-utils"
 import { getWorkspaceForUser, canSendSms, recordSmsSent } from "@/lib/workspace"
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { sendTelnyxSms } from "@/lib/telnyx"
 
 export async function POST(request: Request) {
   try {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken = process.env.TWILIO_AUTH_TOKEN
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
+    const apiKey = process.env.TELNYX_API_KEY
+    const fromNumber = process.env.TELNYX_PHONE_NUMBER
 
-    if (!accountSid || !authToken) {
+    if (!apiKey) {
       return NextResponse.json(
-        { success: false, error: "Twilio is not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN." },
+        { success: false, error: "Telnyx is not configured. Set TELNYX_API_KEY." },
         { status: 500 }
       )
     }
-
-    if (!messagingServiceSid && !fromNumber) {
+    if (!fromNumber) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Set either TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID in .env.local",
-        },
+        { success: false, error: "Set TELNYX_PHONE_NUMBER in environment variables." },
         { status: 500 }
       )
     }
@@ -42,34 +35,21 @@ export async function POST(request: Request) {
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json(
-        { success: false, error: "Invalid JSON body" },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 })
     }
 
-    const to = body?.to
-    const message = body?.message
-
-    const phoneValidation = validatePhone(to ?? "")
+    const phoneValidation = validatePhone(body?.to ?? "")
     if (!phoneValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: phoneValidation.error },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: phoneValidation.error }, { status: 400 })
     }
 
-    const messageValidation = validateMessage(message ?? "")
+    const messageValidation = validateMessage(body?.message ?? "")
     if (!messageValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: messageValidation.error },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: messageValidation.error }, { status: 400 })
     }
 
-    const toPhone = String(to).trim()
-    const messageBody = String(message).trim()
-    const fromPhone = fromNumber ?? "(Messaging Service)"
+    const toPhone = String(body.to).trim()
+    const messageBody = String(body.message).trim()
 
     let workspaceId: string | null = null
     if (isSupabaseConfigured()) {
@@ -87,52 +67,40 @@ export async function POST(request: Request) {
           }
         }
       } catch {
-        // Auth/Supabase not configured - allow send for dev (Test SMS page)
+        // Auth/Supabase not configured - allow send for dev
       }
     }
 
-    const client = Twilio(accountSid, authToken)
-
-    const params: Record<string, string> = {
+    const result = await sendTelnyxSms({
       to: toPhone,
       body: messageBody,
-    }
+      webhookUrl: process.env.TELNYX_WEBHOOK_URL,
+    })
 
-    if (messagingServiceSid) {
-      params.messagingServiceSid = messagingServiceSid
-    } else {
-      params.from = fromNumber!
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 })
     }
-
-    // Optional: add status callback if webhook URL is set (e.g. via ngrok)
-    const webhookBase = process.env.TWILIO_WEBHOOK_BASE_URL
-    if (webhookBase) {
-      params.statusCallback = `${webhookBase}/api/twilio/webhook`
-    }
-
-    const twilioMessage = await client.messages.create(params)
 
     if (workspaceId && isSupabaseConfigured() && supabase) {
       await recordSmsSent(workspaceId)
       await supabase.from("sms_logs").insert({
         workspace_id: workspaceId,
         to_phone: toPhone,
-        from_phone: fromPhone,
+        from_phone: fromNumber,
         body: messageBody,
-        provider_message_id: twilioMessage.sid,
+        provider_message_id: result.messageId ?? null,
       })
     }
 
     return NextResponse.json({
       success: true,
-      sid: twilioMessage.sid,
-      status: twilioMessage.status,
+      sid: result.messageId,
+      status: "queued",
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error"
     console.error("[api/sms/send] Error:", err)
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
     )
   }
