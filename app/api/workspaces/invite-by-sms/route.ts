@@ -9,7 +9,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 import { getWorkspaceForUser } from "@/lib/workspace"
 import { canSendSms, recordSmsSent } from "@/lib/workspace"
 import { validatePhone } from "@/lib/sms-utils"
-import Twilio from "twilio"
+import { sendTelnyxSms } from "@/lib/telnyx"
 
 const INVITE_EXPIRES_DAYS = 7
 
@@ -84,29 +84,18 @@ export async function POST(request: Request) {
     const workspaceName = workspace?.name ?? "Our team"
     const message = `You're invited to join ${workspaceName}! Sign up or log in here to join: ${joinUrl}`
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken = process.env.TWILIO_AUTH_TOKEN
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
-
-    if (!accountSid || !authToken) {
-      return NextResponse.json({ error: "SMS (Twilio) is not configured" }, { status: 503 })
+    if (!process.env.TELNYX_API_KEY) {
+      return NextResponse.json({ error: "SMS (Telnyx) is not configured" }, { status: 503 })
     }
-    if (!messagingServiceSid && !fromNumber) {
-      return NextResponse.json({ error: "Set TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID" }, { status: 503 })
+    if (!process.env.TELNYX_PHONE_NUMBER) {
+      return NextResponse.json({ error: "Set TELNYX_PHONE_NUMBER in environment variables" }, { status: 503 })
     }
 
-    const twilio = Twilio(accountSid, authToken)
-    const params: Record<string, string> = {
-      to: phone!,
-      body: message,
+    const result = await sendTelnyxSms({ to: phone!, body: message })
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error ?? "Failed to send SMS" }, { status: 503 })
     }
-    if (messagingServiceSid) params.messagingServiceSid = messagingServiceSid
-    else params.from = fromNumber!
-
-    await twilio.messages.create(params)
     await recordSmsSent(membership.workspace_id)
-
     return NextResponse.json({ success: true, message: "Invite sent" })
   } catch (err) {
     console.error("[invite-by-sms] Error:", err)
