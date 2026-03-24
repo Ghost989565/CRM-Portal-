@@ -11,7 +11,7 @@ import { getWorkspaceForUser, canSendSms, recordSmsSent } from "@/lib/workspace"
 import { validatePhone } from "@/lib/sms-utils"
 import { getEmailTemplate, renderTemplate } from "@/lib/email-templates"
 import { sendEmail } from "@/lib/email"
-import Twilio from "twilio"
+import { sendTelnyxSms } from "@/lib/telnyx"
 
 const INVITE_EXPIRES_DAYS = 7
 
@@ -92,22 +92,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
 
+      if (!process.env.TELNYX_API_KEY || !process.env.TELNYX_PHONE_NUMBER) {
+        return NextResponse.json({ error: "SMS (Telnyx) is not configured" }, { status: 503 })
+      }
+
       const message = `You're invited to join ${workspaceName}! Sign up or log in here to join: ${joinUrl}`
-      const accountSid = process.env.TWILIO_ACCOUNT_SID
-      const authToken = process.env.TWILIO_AUTH_TOKEN
-      const fromNumber = process.env.TWILIO_PHONE_NUMBER
-      const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
-      if (!accountSid || !authToken) {
-        return NextResponse.json({ error: "SMS (Twilio) is not configured" }, { status: 503 })
+      const result = await sendTelnyxSms({ to: normalizedPhone, body: message })
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error ?? "Failed to send SMS" }, { status: 503 })
       }
-      if (!messagingServiceSid && !fromNumber) {
-        return NextResponse.json({ error: "Set TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID" }, { status: 503 })
-      }
-      const twilio = Twilio(accountSid, authToken)
-      const params: Record<string, string> = { to: normalizedPhone, body: message }
-      if (messagingServiceSid) params.messagingServiceSid = messagingServiceSid
-      else params.from = fromNumber!
-      await twilio.messages.create(params)
       await recordSmsSent(membership.workspace_id)
 
       return NextResponse.json({ success: true, method: "sms", message: "Invite sent by text" })
@@ -136,20 +129,10 @@ export async function POST(request: Request) {
         )
         const emailResult = await sendEmail({ to: email, subject, html, text })
         if (emailResult.ok) {
-          return NextResponse.json({
-            success: true,
-            method: "email",
-            joinUrl,
-            message: "Invite email sent.",
-          })
+          return NextResponse.json({ success: true, method: "email", joinUrl, message: "Invite email sent." })
         }
       }
-      return NextResponse.json({
-        success: true,
-        method: "email",
-        joinUrl,
-        message: "Invite created. Share the link with them to join.",
-      })
+      return NextResponse.json({ success: true, method: "email", joinUrl, message: "Invite created. Share the link with them to join." })
     }
 
     return NextResponse.json({ error: "Provide phone or email" }, { status: 400 })
