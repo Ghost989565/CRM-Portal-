@@ -1,10 +1,10 @@
 /**
  * SMS message database logging - optional, requires Supabase.
- * Logs outbound sends and inbound/status updates from Twilio webhook.
+ * Logs outbound sends and inbound/status updates from Telnyx webhook.
  */
 import { supabase, isSupabaseConfigured } from "@/lib/supabase"
 
-type MessageStatus = "queued" | "sent" | "delivered" | "failed" | "received"
+export type MessageStatus = "queued" | "sent" | "delivered" | "failed" | "received"
 
 /** Normalize Twilio status to our schema (queued|sent|delivered|failed) */
 export function normalizeTwilioStatus(status: string | null | undefined): MessageStatus {
@@ -14,6 +14,17 @@ export function normalizeTwilioStatus(status: string | null | undefined): Messag
   if (s === "sent") return "sent"
   if (s === "delivered") return "delivered"
   if (["failed", "undelivered"].includes(s)) return "failed"
+  return "queued"
+}
+
+/** Normalize Telnyx status to our schema (queued|sent|delivered|failed) */
+export function normalizeTelnyxStatus(status: string | null | undefined): MessageStatus {
+  if (!status) return "queued"
+  const s = status.toLowerCase()
+  if (s === "delivered") return "delivered"
+  if (["sending", "queued"].includes(s)) return "queued"
+  if (s === "sent") return "sent"
+  if (["delivery_failed", "failed", "undelivered"].includes(s)) return "failed"
   return "queued"
 }
 
@@ -51,7 +62,7 @@ export async function updateMessageStatus(
   void providerMessageId
   void status
   // sms_logs does not currently persist delivery status. Keep this as a safe no-op
-  // until the schema adds a dedicated status column for Twilio callbacks.
+  // until the schema adds a dedicated status column for callbacks.
 }
 
 /** Update a message by its DB id (e.g. right after send, to set provider_message_id + status) */
