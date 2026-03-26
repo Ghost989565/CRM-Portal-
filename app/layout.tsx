@@ -8,8 +8,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
-  title: "SFS - Protect Today. Grow Tomorrow.",
-  description: "Professional life insurance, IUL, annuities, debt solutions, and retirement planning services.",
+  title: "Pantheon CRM",
+  description: "Pantheon CRM helps teams manage clients, automate follow-up, and grow revenue with a 14-day free trial.",
   generator: "v0.app",
 }
 
