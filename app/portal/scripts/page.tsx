@@ -28,6 +28,7 @@ export default function ScriptsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedScript, setSelectedScript] = useState<Script | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
 
   const categoryIcons = {
     presentation: Presentation,
@@ -53,14 +54,20 @@ export default function ScriptsPage() {
   }
 
   const handleEditScript = (script: Script) => {
-    // TODO: Implement edit functionality
-    console.log("Edit script:", script.id)
+    setSelectedScript(script)
+    setViewerOpen(true)
+    setActionMessage("Editor mode will be added next. Showing script details for now.")
   }
 
   const handleCopyScript = (script: Script) => {
-    navigator.clipboard.writeText(script.content)
-    // TODO: Show toast notification
-    console.log("Copied script:", script.title)
+    void navigator.clipboard.writeText(script.content)
+    setActionMessage(`Copied "${script.title}" to clipboard.`)
+  }
+
+  const handleCreateScript = () => {
+    const template = `Title: New Script\nCategory: presentation\n\nIntro:\n\nKey Points:\n\nClose:`
+    void navigator.clipboard.writeText(template)
+    setActionMessage("Script template copied to clipboard. Paste and customize it.")
   }
 
   return (
@@ -71,7 +78,7 @@ export default function ScriptsPage() {
             <h1 className="text-3xl font-bold text-foreground">Scripts Library</h1>
             <p className="text-muted-foreground">Access proven scripts for presentations, calls, and communications</p>
           </div>
-          <Button className="flex items-center gap-2">
+          <Button className="flex items-center gap-2" onClick={handleCreateScript}>
             <Plus className="h-4 w-4" />
             New Script
           </Button>
@@ -91,11 +98,19 @@ export default function ScriptsPage() {
                     className="pl-10"
                   />
                 </div>
-                <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 bg-transparent"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setSelectedCategory("all")
+                  }}
+                >
                   <Filter className="h-4 w-4" />
-                  Filters
+                  Reset Filters
                 </Button>
               </div>
+              {actionMessage ? <p className="text-sm text-muted-foreground">{actionMessage}</p> : null}
 
               <div className="flex flex-wrap gap-2">
                 <Badge

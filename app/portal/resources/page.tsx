@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { PortalLayout } from "@/components/portal-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,8 @@ export default function ResourcesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedModule, setSelectedModule] = useState<TrainingModule | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [completedLessonsByModule, setCompletedLessonsByModule] = useState<Record<string, string[]>>({})
+  const [moduleMessage, setModuleMessage] = useState<string | null>(null)
 
   const categoryIcons = {
     all: BookOpen,
@@ -23,7 +25,40 @@ export default function ResourcesPage() {
     appointment: Calendar,
   }
 
-  const filteredModules = trainingModules.filter((module) => {
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("pantheon-training-progress-v1")
+      if (!raw) return
+      setCompletedLessonsByModule(JSON.parse(raw) as Record<string, string[]>)
+    } catch {
+      // Ignore malformed storage.
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("pantheon-training-progress-v1", JSON.stringify(completedLessonsByModule))
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [completedLessonsByModule])
+
+  const modulesWithProgress = useMemo(() => {
+    return trainingModules.map((module) => {
+      const completed = new Set(completedLessonsByModule[module.id] || [])
+      const lessonCount = module.lessons.length
+      const completedCount = module.lessons.filter((lesson) => completed.has(lesson.id)).length
+      const progress = lessonCount > 0 ? Math.round((completedCount / lessonCount) * 100) : 0
+
+      return {
+        ...module,
+        progress,
+        completed: progress === 100,
+      }
+    })
+  }, [completedLessonsByModule])
+
+  const filteredModules = modulesWithProgress.filter((module) => {
     const matchesSearch =
       module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       module.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -43,12 +78,16 @@ export default function ResourcesPage() {
   }
 
   const handleLessonComplete = (moduleId: string, lessonId: string) => {
-    // TODO: Implement lesson completion tracking
-    console.log(`Module ${moduleId}, Lesson ${lessonId} completed`)
+    setCompletedLessonsByModule((prev) => {
+      const current = new Set(prev[moduleId] || [])
+      current.add(lessonId)
+      return { ...prev, [moduleId]: Array.from(current) }
+    })
+    setModuleMessage("Progress saved.")
   }
 
   const getCategoryStats = (categoryId: string) => {
-    const modules = categoryId === "all" ? trainingModules : trainingModules.filter((m) => m.category === categoryId)
+    const modules = categoryId === "all" ? modulesWithProgress : modulesWithProgress.filter((m) => m.category === categoryId)
     const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0)
     const completedModules = modules.filter((m) => m.completed).length
     return {
@@ -170,6 +209,7 @@ export default function ResourcesPage() {
           }}
           onLessonComplete={handleLessonComplete}
         />
+        {moduleMessage ? <p className="text-sm text-white/70">{moduleMessage}</p> : null}
       </div>
     </PortalLayout>
   )

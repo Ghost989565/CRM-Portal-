@@ -42,7 +42,8 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
   useEffect(() => {
     if (!client) return
 
-    setNotes(client.notes || "")
+    const stored = localStorage.getItem(`client-notes-${client.id}`)
+    setNotes(stored ?? client.notes ?? "")
     setFeedback(null)
     setFiles(client.files || [])
     setSmsMessage(`Hi ${client.firstName}, just checking in from Pantheon CRM.`)
@@ -185,6 +186,11 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleSaveNotes = () => {
+    localStorage.setItem(`client-notes-${client.id}`, notes)
+    setFeedback("Notes saved on this device.")
   }
 
   return (
@@ -351,7 +357,9 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
                   rows={8}
                 />
                 <div className="flex justify-end mt-4">
-                  <Button size="sm">Save Notes</Button>
+                  <Button size="sm" onClick={handleSaveNotes}>
+                    Save Notes
+                  </Button>
                 </div>
               </CardContent>
             </Card>

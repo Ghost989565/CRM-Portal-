@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PortalLayout } from "@/components/portal-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Settings,
   User,
   Bell,
   Calendar,
@@ -22,9 +21,7 @@ import {
   Lock,
   Trash2,
   Download,
-  RefreshCw,
   CheckCircle2,
-  XCircle,
 } from "lucide-react"
 
 export default function SettingsPage() {
@@ -36,7 +33,14 @@ export default function SettingsPage() {
     phone: "",
     title: "",
     bio: "",
+    avatarPath: "",
+    avatarUrl: "",
   })
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [profileMessage, setProfileMessage] = useState<string | null>(null)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   // Notification preferences
   const [notifications, setNotifications] = useState({
@@ -73,9 +77,144 @@ export default function SettingsPage() {
     showWeekends: true,
   })
 
-  const handleProfileUpdate = () => {
-    // TODO: Implement profile update API call
-    alert("Profile updated successfully!")
+  useEffect(() => {
+    const loadProfile = async () => {
+      setIsLoadingProfile(true)
+      setProfileMessage(null)
+
+      try {
+        const response = await fetch("/api/profile", { cache: "no-store" })
+        const payload = (await response.json()) as {
+          error?: string
+          profile?: {
+            firstName?: string
+            lastName?: string
+            email?: string
+            phone?: string
+            title?: string
+            avatarPath?: string
+            avatarUrl?: string
+          }
+        }
+
+        if (!response.ok || !payload.profile) {
+          throw new Error(payload.error || "Unable to load profile")
+        }
+
+        setProfile((prev) => ({
+          ...prev,
+          firstName: payload.profile?.firstName || "",
+          lastName: payload.profile?.lastName || "",
+          email: payload.profile?.email || "",
+          phone: payload.profile?.phone || "",
+          title: payload.profile?.title || "",
+          avatarPath: payload.profile?.avatarPath || "",
+          avatarUrl: payload.profile?.avatarUrl || "",
+        }))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to load profile"
+        setProfileMessage(message)
+      } finally {
+        setIsLoadingProfile(false)
+      }
+    }
+
+    void loadProfile()
+  }, [])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("pantheon-settings-v1")
+      if (!raw) return
+      const parsed = JSON.parse(raw) as {
+        notifications?: typeof notifications
+        calendarIntegrations?: typeof calendarIntegrations
+        privacy?: typeof privacy
+        appearance?: typeof appearance
+      }
+
+      if (parsed.notifications) setNotifications(parsed.notifications)
+      if (parsed.calendarIntegrations) setCalendarIntegrations(parsed.calendarIntegrations)
+      if (parsed.privacy) setPrivacy(parsed.privacy)
+      if (parsed.appearance) setAppearance(parsed.appearance)
+    } catch {
+      // Ignore malformed local storage.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "pantheon-settings-v1",
+        JSON.stringify({ notifications, calendarIntegrations, privacy, appearance }),
+      )
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [notifications, calendarIntegrations, privacy, appearance])
+
+  const handleProfileUpdate = async () => {
+    setProfileMessage(null)
+    setIsSavingProfile(true)
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          phone: profile.phone,
+          title: profile.title,
+        }),
+      })
+
+      const payload = (await response.json()) as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to save profile")
+      }
+
+      setProfileMessage("Profile saved successfully.")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to save profile"
+      setProfileMessage(message)
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
+  const handleAvatarChange = async (file?: File) => {
+    if (!file) return
+
+    setProfileMessage(null)
+    setIsUploadingAvatar(true)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: formData,
+      })
+      const payload = (await response.json()) as { error?: string; avatarPath?: string; avatarUrl?: string }
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to upload image")
+      }
+
+      setProfile((prev) => ({
+        ...prev,
+        avatarPath: payload.avatarPath || prev.avatarPath,
+        avatarUrl: payload.avatarUrl || prev.avatarUrl,
+      }))
+      setProfileMessage("Profile photo updated.")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to upload image"
+      setProfileMessage(message)
+    } finally {
+      setIsUploadingAvatar(false)
+    }
   }
 
   const handleConnectGoogle = () => {
@@ -160,14 +299,30 @@ export default function SettingsPage() {
                 {/* Avatar */}
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20 border-2 border-white/20">
-                    <AvatarImage src="" alt="Profile" />
+                    <AvatarImage src={profile.avatarUrl || undefined} alt="Profile" />
                     <AvatarFallback className="bg-white/10 text-white text-xl">
                       {profile.firstName?.[0] || profile.lastName?.[0] || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <Button variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/20">
-                      Change Photo
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        void handleAvatarChange(file)
+                        e.target.value = ""
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                    >
+                      {isUploadingAvatar ? "Uploading..." : "Change Photo"}
                     </Button>
                     <p className="text-xs text-white/60 mt-1">JPG, PNG or GIF. Max size 2MB</p>
                   </div>
@@ -210,7 +365,7 @@ export default function SettingsPage() {
                       id="email"
                       type="email"
                       value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                      readOnly
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                       placeholder="john.doe@example.com"
                     />
@@ -258,11 +413,13 @@ export default function SettingsPage() {
                 <div className="flex justify-end">
                   <Button
                     onClick={handleProfileUpdate}
+                    disabled={isSavingProfile || isLoadingProfile}
                     className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                   >
-                    Save Changes
+                    {isSavingProfile ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
+                {profileMessage ? <p className="text-sm text-white/80">{profileMessage}</p> : null}
               </CardContent>
             </Card>
 

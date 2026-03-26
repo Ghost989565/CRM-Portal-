@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { PortalLayout } from "@/components/portal-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -19,6 +20,26 @@ export default function PerformancePage() {
   const totalActual = mockMetrics.reduce((sum, m) => sum + m.value, 0)
   const overallProgress = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100) : 0
 
+  const handleExportReport = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      overallProgress,
+      totals: {
+        target: totalTarget,
+        actual: totalActual,
+      },
+      metrics: mockMetrics,
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `performance-report-${new Date().toISOString().split("T")[0]}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <PortalLayout>
       <div className="space-y-8">
@@ -28,13 +49,15 @@ export default function PerformancePage() {
             <p className="text-muted-foreground">Track your KPIs, goals, and business metrics</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Button variant="outline" className="flex items-center gap-2 bg-transparent" onClick={handleExportReport}>
               <Download className="h-4 w-4" />
               Export Report
             </Button>
-            <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-              <Settings className="h-4 w-4" />
-              Settings
+            <Button variant="outline" className="flex items-center gap-2 bg-transparent" asChild>
+              <Link href="/portal/settings">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
             </Button>
           </div>
         </div>
@@ -172,7 +195,9 @@ export default function PerformancePage() {
                     <p className="text-muted-foreground mb-4">
                       Set monthly, quarterly, and yearly goals to track your progress
                     </p>
-                    <Button>Set New Goals</Button>
+                    <Button asChild>
+                      <Link href="/portal/settings">Set New Goals</Link>
+                    </Button>
                   </div>
                 </div>
               </CardContent>
