@@ -5,14 +5,19 @@ import { PortalLayout } from "@/components/portal-layout"
 import { ClientsListView } from "@/components/clients-list-view"
 import { ClientsBoardView } from "@/components/clients-board-view"
 import { ClientProfileSheet } from "@/components/client-profile-sheet"
+import { AddClientDialog } from "@/components/add-client-dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, List, LayoutGrid } from "lucide-react"
-import type { Client } from "@/lib/crm-data"
+import { mockClients, type Client } from "@/lib/crm-data"
+import { useClients } from "@/hooks/use-clients"
 
 export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [viewMode, setViewMode] = useState<"list" | "board">("list")
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false)
+  const { clients: supabaseClients, refresh } = useClients()
+  const clients = supabaseClients.length > 0 ? supabaseClients : mockClients
 
   return (
     <PortalLayout>
@@ -38,8 +43,7 @@ export default function ClientsPage() {
             <Button
               className="bg-blue-500 hover:bg-blue-600 text-white"
               onClick={() => {
-                // TODO: Open add client modal/form
-                console.log("Add client clicked")
+                setIsAddClientOpen(true)
               }}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -50,14 +54,15 @@ export default function ClientsPage() {
 
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "list" | "board")}>
           <TabsContent value="list">
-            <ClientsListView onClientSelect={setSelectedClient} />
+            <ClientsListView clients={clients} onClientSelect={setSelectedClient} onRefresh={refresh} />
           </TabsContent>
           <TabsContent value="board">
-            <ClientsBoardView onClientSelect={setSelectedClient} />
+            <ClientsBoardView clients={clients} onClientSelect={setSelectedClient} />
           </TabsContent>
         </Tabs>
 
         <ClientProfileSheet client={selectedClient} isOpen={!!selectedClient} onClose={() => setSelectedClient(null)} />
+        <AddClientDialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen} onClientAdded={() => refresh()} />
       </div>
     </PortalLayout>
   )

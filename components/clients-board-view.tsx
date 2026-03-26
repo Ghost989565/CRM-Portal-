@@ -6,14 +6,15 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Phone, Mail, MessageSquare, Calendar } from "lucide-react"
-import { mockClients, statusOptions, type Client, type ClientStatus } from "@/lib/crm-data"
+import { statusOptions, type Client, type ClientStatus } from "@/lib/crm-data"
 
 interface ClientsBoardViewProps {
+  clients: Client[]
   onClientSelect: (client: Client) => void
 }
 
-export function ClientsBoardView({ onClientSelect }: ClientsBoardViewProps) {
-  const [clients, setClients] = useState(mockClients)
+export function ClientsBoardView({ clients: initialClients, onClientSelect }: ClientsBoardViewProps) {
+  const [clients, setClients] = useState(initialClients)
 
   const handleStatusChange = (clientId: string, newStatus: ClientStatus) => {
     setClients((prev) => prev.map((client) => (client.id === clientId ? { ...client, status: newStatus } : client)))

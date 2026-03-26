@@ -1,12 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X } from "lucide-react"
+import { LayoutDashboard, Calendar, Users, FileText, BookOpen, Settings, Menu, X, LogOut } from "lucide-react"
+import { createOptionalClient } from "@/lib/supabase/client"
+
+interface AuthUser {
+  email?: string
+  user_metadata?: {
+    first_name?: string
+    last_name?: string
+  }
+}
 
 const navigation = [
   { name: "Dashboard", href: "/portal", icon: LayoutDashboard },
@@ -19,11 +28,49 @@ const navigation = [
 
 export function PortalSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createOptionalClient()
+    if (!supabase) return
+
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => setUser(user || null))
+      .catch(() => setUser(null))
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    const supabase = createOptionalClient()
+    if (!supabase) return
+
+    setIsSigningOut(true)
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+    router.refresh()
+  }
+
+  const userName = user?.user_metadata?.first_name
+    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ""}`.trim()
+    : user?.email?.split("@")[0] || "Agent"
+
+  const initials = user?.user_metadata?.first_name
+    ? `${user.user_metadata.first_name[0] || ""}${user.user_metadata.last_name?.[0] || ""}`.toUpperCase()
+    : (user?.email?.[0] || "A").toUpperCase()
 
   return (
     <>
-      {/* Mobile menu button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <Button
           variant="outline"
@@ -35,7 +82,6 @@ export function PortalSidebar() {
         </Button>
       </div>
 
-      {/* Sidebar */}
       <div
         data-calendar-sidebar
         className={cn(
@@ -44,27 +90,24 @@ export function PortalSidebar() {
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
             <Link href="/portal" className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-sidebar-primary">SFS</span>
+              <span className="text-2xl font-bold text-sidebar-primary">Pantheon</span>
             </Link>
           </div>
 
-          {/* User info */}
           <div className="p-6 border-b border-sidebar-border">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground"></AvatarFallback>
+                <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate"></p>
-                <p className="text-xs text-sidebar-foreground/60 truncate"></p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email || ""}</p>
               </div>
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
             {navigation.map((item) => {
               const isActive = pathname === item.href
@@ -86,10 +129,21 @@ export function PortalSidebar() {
               )
             })}
           </nav>
+
+          <div className="p-4 border-t border-sidebar-border">
+            <Button
+              variant="ghost"
+              onClick={handleSignOut}
+              disabled={isSigningOut || !createOptionalClient()}
+              className="w-full justify-start text-sidebar-foreground hover:bg-white/5 hover:text-white"
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              {isSigningOut ? "Signing out..." : "Sign out"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
