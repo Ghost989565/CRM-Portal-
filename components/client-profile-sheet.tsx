@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,15 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Phone, Mail, MessageSquare, Calendar, FileText, Upload, Download, Clock, Tag, User } from "lucide-react"
 import { type Client, statusOptions, stageOptions } from "@/lib/crm-data"
 
+type ApiClientFile = {
+  id: string
+  name: string
+  type: string
+  size: number
+  uploadedAt: string
+  downloadUrl?: string | null
+}
+
 interface ClientProfileSheetProps {
   client: Client | null
   isOpen: boolean
@@ -21,19 +30,116 @@ interface ClientProfileSheetProps {
 
 export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileSheetProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  const [notes, setNotes] = useState(client?.notes || "")
+  const [notes, setNotes] = useState("")
+  const [files, setFiles] = useState<ApiClientFile[]>([])
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSendingText, setIsSendingText] = useState(false)
+  const [smsMessage, setSmsMessage] = useState("")
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (!client) return
+
+    setNotes(client.notes || "")
+    setFeedback(null)
+    setFiles(client.files || [])
+    setSmsMessage(`Hi ${client.firstName}, just checking in from Pantheon CRM.`)
+  }, [client])
+
+  useEffect(() => {
+    if (!client || !isOpen) return
+
+    const controller = new AbortController()
+
+    const loadFiles = async () => {
+      setFilesLoading(true)
+      try {
+        const response = await fetch(`/api/clients/${client.id}/files`, {
+          signal: controller.signal,
+          cache: "no-store",
+        })
+
+        const payload = (await response.json()) as { error?: string; files?: ApiClientFile[] }
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to fetch files")
+        }
+
+        setFiles(payload.files || [])
+      } catch (error) {
+        if (controller.signal.aborted) return
+        const message = error instanceof Error ? error.message : "Failed to load files"
+        setFeedback(message)
+      } finally {
+        if (!controller.signal.aborted) {
+          setFilesLoading(false)
+        }
+      }
+    }
+
+    void loadFiles()
+
+    return () => controller.abort()
+  }, [client, isOpen])
+
+  const defaultSmsUri = useMemo(() => {
+    if (!client?.phone) return ""
+    return `sms:${client.phone}`
+  }, [client?.phone])
 
   if (!client) return null
 
-  const handleAction = (action: string) => {
-    console.log(`${action} action for ${client.firstName} ${client.lastName}`)
-
+  const handleAction = async (action: "call" | "text" | "email") => {
     if (action === "call") {
       window.open(`tel:${client.phone}`)
-    } else if (action === "text") {
-      window.open(`sms:${client.phone}`)
-    } else if (action === "email") {
-      window.open(`mailto:${client.email}?subject=SFS%20Follow-up`)
+      return
+    }
+
+    if (action === "email") {
+      window.open(`mailto:${client.email}?subject=Pantheon%20CRM%20Follow-up`)
+      return
+    }
+
+    setIsSendingText(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: client.id,
+          message: smsMessage,
+        }),
+      })
+
+      const payload = (await response.json()) as {
+        error?: string
+        configured?: boolean
+        fallbackUri?: string
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to send text message")
+      }
+
+      if (payload.configured === false) {
+        window.open(payload.fallbackUri || defaultSmsUri)
+        setFeedback("Twilio is not configured. Opened your device SMS app instead.")
+        return
+      }
+
+      setFeedback("Text message sent successfully.")
+    } catch {
+      if (defaultSmsUri) {
+        window.open(defaultSmsUri)
+        setFeedback("Text API failed. Opened your device SMS app instead.")
+      } else {
+        setFeedback("Unable to send text because this client has no phone number.")
+      }
+    } finally {
+      setIsSendingText(false)
     }
   }
 
@@ -43,6 +149,42 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  const formatDateTime = (value: string) => {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleString()
+  }
+
+  const handleUpload = async (file?: File) => {
+    if (!file) return
+
+    setIsUploading(true)
+    setFeedback(null)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(`/api/clients/${client.id}/files`, {
+        method: "POST",
+        body: formData,
+      })
+
+      const payload = (await response.json()) as { error?: string; file?: ApiClientFile }
+      if (!response.ok || !payload.file) {
+        throw new Error(payload.error || "Failed to upload file")
+      }
+
+      setFiles((prev) => [payload.file, ...prev])
+      setFeedback("File uploaded successfully.")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload file"
+      setFeedback(message)
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   return (
@@ -67,7 +209,6 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
             </div>
           </div>
 
-          {/* Status and Stage */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Status</Label>
@@ -101,7 +242,6 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
             </div>
           </div>
 
-          {/* Tags */}
           <div className="space-y-2">
             <Label>Tags</Label>
             <div className="flex flex-wrap gap-2">
@@ -118,17 +258,16 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex space-x-2">
-            <Button size="sm" onClick={() => handleAction("call")}>
+            <Button size="sm" onClick={() => void handleAction("call")}>
               <Phone className="h-4 w-4 mr-2" />
               Call
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleAction("text")}>
+            <Button size="sm" variant="outline" onClick={() => void handleAction("text")} disabled={isSendingText}>
               <MessageSquare className="h-4 w-4 mr-2" />
-              Text
+              {isSendingText ? "Sending..." : "Text"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleAction("email")}>
+            <Button size="sm" variant="outline" onClick={() => void handleAction("email")}>
               <Mail className="h-4 w-4 mr-2" />
               Email
             </Button>
@@ -137,6 +276,18 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
               Schedule
             </Button>
           </div>
+
+          <div className="space-y-2">
+            <Label>Text Message</Label>
+            <Textarea
+              value={smsMessage}
+              onChange={(event) => setSmsMessage(event.target.value)}
+              placeholder="Write a quick SMS follow-up..."
+              rows={2}
+            />
+          </div>
+
+          {feedback && <p className="text-sm text-muted-foreground">{feedback}</p>}
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
@@ -164,15 +315,19 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
                   </div>
                   <div>
                     <Label>Created</Label>
-                    <p className="text-sm text-muted-foreground">{client.createdAt}</p>
+                    <p className="text-sm text-muted-foreground">{formatDateTime(client.createdAt)}</p>
                   </div>
                   <div>
                     <Label>Last Contact</Label>
-                    <p className="text-sm text-muted-foreground">{client.lastContact || "Never"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {client.lastContact ? formatDateTime(client.lastContact) : "Never"}
+                    </p>
                   </div>
                   <div>
                     <Label>Next Appointment</Label>
-                    <p className="text-sm text-muted-foreground">{client.nextAppointment || "None scheduled"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {client.nextAppointment ? formatDateTime(client.nextAppointment) : "None scheduled"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -210,27 +365,50 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
                     <FileText className="h-5 w-5 mr-2" />
                     Documents
                   </div>
-                  <Button size="sm">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload
-                  </Button>
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        void handleUpload(file)
+                        event.target.value = ""
+                      }}
+                    />
+                    <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {isUploading ? "Uploading..." : "Upload"}
+                    </Button>
+                  </>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {client.files.length > 0 ? (
+                {filesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading files...</div>
+                ) : files.length > 0 ? (
                   <div className="space-y-3">
-                    {client.files.map((file) => (
+                    {files.map((file) => (
                       <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           <FileText className="h-8 w-8 text-muted-foreground" />
                           <div>
                             <p className="font-medium text-sm">{file.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {formatFileSize(file.size)} • {file.type} • {file.uploadedAt}
+                              {formatFileSize(file.size)} • {file.type} • {formatDateTime(file.uploadedAt)}
                             </p>
                           </div>
                         </div>
-                        <Button size="sm" variant="ghost">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!file.downloadUrl}
+                          onClick={() => {
+                            if (file.downloadUrl) {
+                              window.open(file.downloadUrl, "_blank", "noopener,noreferrer")
+                            }
+                          }}
+                        >
                           <Download className="h-4 w-4" />
                         </Button>
                       </div>
@@ -292,23 +470,23 @@ export function ClientProfileSheet({ client, isOpen, onClose }: ClientProfileShe
                 ) : (
                   <div className="space-y-4">
                     {client.contactHistory.map((contact) => (
-                    <div key={contact.id} className="flex items-start space-x-3 pb-4 border-b last:border-b-0">
-                      <div className="w-8 h-8 bg-accent/10 rounded-full flex items-center justify-center">
-                        {contact.type === "call" && <Phone className="h-4 w-4 text-accent" />}
-                        {contact.type === "email" && <Mail className="h-4 w-4 text-accent" />}
-                        {contact.type === "text" && <MessageSquare className="h-4 w-4 text-accent" />}
-                        {contact.type === "meeting" && <Calendar className="h-4 w-4 text-accent" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm capitalize">{contact.type}</p>
-                          <p className="text-xs text-muted-foreground">{contact.timestamp}</p>
+                      <div key={contact.id} className="flex items-start space-x-3 pb-4 border-b last:border-b-0">
+                        <div className="w-8 h-8 bg-accent/10 rounded-full flex items-center justify-center">
+                          {contact.type === "call" && <Phone className="h-4 w-4 text-accent" />}
+                          {contact.type === "email" && <Mail className="h-4 w-4 text-accent" />}
+                          {contact.type === "text" && <MessageSquare className="h-4 w-4 text-accent" />}
+                          {contact.type === "meeting" && <Calendar className="h-4 w-4 text-accent" />}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{contact.outcome}</p>
-                        {contact.notes && <p className="text-xs text-muted-foreground mt-2 italic">{contact.notes}</p>}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm capitalize">{contact.type}</p>
+                            <p className="text-xs text-muted-foreground">{contact.timestamp}</p>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{contact.outcome}</p>
+                          {contact.notes && <p className="text-xs text-muted-foreground mt-2 italic">{contact.notes}</p>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   </div>
                 )}
               </CardContent>

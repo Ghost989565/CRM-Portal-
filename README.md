@@ -13,11 +13,21 @@ A Next.js CRM portal with client management, scripts, calendars, resources, and 
 ```bash
 npm install
 ```
-2. Start dev server:
+2. Create environment file:
+```bash
+cp .env.example .env.local
+```
+3. Run Supabase SQL setup in order:
+```bash
+scripts/001_create_tables.sql
+scripts/002_add_referral_system.sql
+scripts/003_storage_setup.sql
+```
+4. Start dev server:
 ```bash
 npm run dev
 ```
-3. Open [http://localhost:3000](http://localhost:3000)
+5. Open [http://localhost:3000](http://localhost:3000)
 
 ## Build
 ```bash

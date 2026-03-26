@@ -26,15 +26,36 @@ export function ClientsListView({ clients, onClientSelect, onRefresh }: ClientsL
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   const handleAction = async (action: string, client: Client) => {
+    if (action === "text") {
+      try {
+        const response = await fetch("/api/messages/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: client.id,
+            message: `Hi ${client.firstName}, this is a quick follow-up from Pantheon CRM.`,
+          }),
+        })
+
+        const payload = (await response.json()) as { configured?: boolean; fallbackUri?: string }
+        if (!response.ok || payload.configured === false) {
+          window.open(payload.fallbackUri || `sms:${client.phone}`)
+        }
+      } catch {
+        window.open(`sms:${client.phone}`)
+      }
+
+      onRefresh?.()
+      return
+    }
+
     await logContact(client.id, action as "call" | "text" | "email" | "meeting")
     onRefresh?.()
 
     if (action === "call") {
       window.open(`tel:${client.phone}`)
-    } else if (action === "text") {
-      window.open(`sms:${client.phone}`)
     } else if (action === "email") {
-      window.open(`mailto:${client.email}?subject=SFS%20Follow-up`)
+      window.open(`mailto:${client.email}?subject=Pantheon%20CRM%20Follow-up`)
     }
   }
 
