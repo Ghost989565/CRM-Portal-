@@ -100,7 +100,7 @@ export default function HomePage() {
 
         <section className="relative mx-auto max-w-7xl px-6 pb-20 pt-8 md:px-10 md:pb-24">
           <header className="mb-16 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-5 py-4 backdrop-blur">
-            <div>
+            <div className="relative">
               <p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Pantheon CRM</p>
               <p className="text-sm text-slate-300">Built for high-performance teams</p>
             </div>
@@ -133,7 +133,7 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="mt-10 hidden lg:block">
+              <div className="mt-10 block">
                 <MeshGradientSVG />
               </div>
             </div>
