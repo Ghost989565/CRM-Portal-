@@ -3,6 +3,7 @@
 import type { FormEvent } from "react"
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { MeshGradientSVG } from "@/components/mesh-gradient-svg"
 
 const coreFeatures = [
   {
@@ -130,6 +131,10 @@ export default function HomePage() {
                     {item}
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-10 hidden lg:block">
+                <MeshGradientSVG />
               </div>
             </div>
 
