@@ -1,379 +1,177 @@
 "use client"
 
-import type { FormEvent } from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
-import {
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-  Rocket,
-  Target,
-  CalendarCheck2,
-  BarChart3,
-  FileText,
-  BookOpen,
-  MessageSquare,
-} from "lucide-react"
-import { MeshGradientSVG } from "@/components/mesh-gradient-svg"
-
-type Feature = {
-  title: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-}
-
-const coreFeatures: Feature[] = [
-  {
-    title: "Client Pipeline & Status Tracking",
-    description:
-      "Move leads through clear stages like Prospect, Qualified, Proposal, and Closed Won while keeping every touchpoint organized.",
-    icon: Target,
-  },
-  {
-    title: "Calendar & Team Availability",
-    description:
-      "Coordinate appointments, request teammate time slots, and avoid scheduling conflicts with visibility into shared calendars.",
-    icon: CalendarCheck2,
-  },
-  {
-    title: "Performance Dashboards",
-    description:
-      "Track activity and sales metrics in one place so managers and agents can spot momentum and bottlenecks fast.",
-    icon: BarChart3,
-  },
-  {
-    title: "Scripts & Templates Library",
-    description:
-      "Use ready-to-run cold call, follow-up, objection handling, presentation, recruiting, and email scripts to improve consistency.",
-    icon: FileText,
-  },
-  {
-    title: "Training Modules",
-    description:
-      "Onboard and level up faster with guided modules for Licensing, CFT, and Appointment training with structured lessons.",
-    icon: BookOpen,
-  },
-  {
-    title: "Client Notes & Contact History",
-    description:
-      "Capture calls, texts, emails, and meeting outcomes so your team always has context before the next conversation.",
-    icon: MessageSquare,
-  },
-]
-
-const trialIncludes = [
-  "Full access to all CRM pages and tools",
-  "Unlimited exploration of pipeline, calendars, scripts, and performance dashboards",
-  "No credit card required",
-  "Instant account activation in under 60 seconds",
-]
-
-const trustStats = [
-  { label: "Teams onboarded", value: "500+" },
-  { label: "Clients tracked", value: "12K+" },
-  { label: "Trial-to-active rate", value: "98%" },
-  { label: "Full-access trial", value: "14 days" },
-]
+import Link from "next/link"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { ArrowRight, Shield, TrendingUp, Users, Calendar, Zap, BarChart3, Lock } from "lucide-react"
 
 export default function HomePage() {
-  const router = useRouter()
-  const formRef = useRef<HTMLDivElement | null>(null)
-  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const successTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
 
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState("")
-  const [company, setCompany] = useState("")
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isActivated, setIsActivated] = useState(false)
-
-  const trialEndDate = useMemo(() => {
-    const end = new Date()
-    end.setDate(end.getDate() + 14)
-    return end.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (successTimerRef.current) clearTimeout(successTimerRef.current)
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
+  const features = [
+    {
+      icon: Shield,
+      title: "Client Management",
+      description: "Organize and track all your clients in one secure, centralized hub. Never lose a lead again.",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: TrendingUp,
+      title: "Pipeline Tracking",
+      description: "Visual pipeline management from New Lead to Follow-Up. Know exactly where each opportunity stands.",
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      icon: Calendar,
+      title: "Team Calendars",
+      description: "Coordinate schedules and share availability with your entire team. Schedule like a pro.",
+      color: "from-orange-500 to-red-500"
+    },
+    {
+      icon: Zap,
+      title: "Sales Scripts",
+      description: "Access proven scripts for cold calls, objection handling, and follow-ups. Close more deals.",
+      color: "from-yellow-500 to-orange-500"
+    },
+    {
+      icon: Users,
+      title: "Team Collaboration",
+      description: "Work together seamlessly with shared resources and team-based subscriptions.",
+      color: "from-green-500 to-emerald-500"
+    },
+    {
+      icon: BarChart3,
+      title: "Performance Analytics",
+      description: "Track metrics that matter. Real-time insights into your pipeline and performance.",
+      color: "from-indigo-500 to-blue-500"
     }
-  }, [])
-
-  const scrollToForm = () => {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-  }
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (isSubmitting || isActivated) return
-
-    if (!firstName || !lastName || !email || !company) {
-      setError("Please fill out all fields.")
-      return
-    }
-
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setError("Please enter a valid email address.")
-      return
-    }
-
-    setError("")
-    setSuccess(null)
-    setIsSubmitting(true)
-
-    localStorage.setItem(
-      "pantheon_trial_user",
-      JSON.stringify({
-        firstName,
-        lastName,
-        email,
-        company,
-        trialStart: new Date().toISOString(),
-        trialEnd: trialEndDate,
-      }),
-    )
-
-    successTimerRef.current = setTimeout(() => {
-      setIsSubmitting(false)
-      setIsActivated(true)
-      setSuccess(`Welcome ${firstName}! Your Pantheon trial is active through ${trialEndDate}.`)
-
-      redirectTimerRef.current = setTimeout(() => {
-        router.push("/portal")
-      }, 1800)
-    }, 1000)
-  }
+  ]
 
   return (
-    <main className="min-h-screen bg-[#0e1218] text-[#e5edf6]">
-      <div className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#22d3ee22,_transparent_45%),radial-gradient(circle_at_90%_20%,_#22c55e1f,_transparent_35%),radial-gradient(circle_at_50%_100%,_#f59e0b1a,_transparent_40%)]" />
-
-        <section className="relative mx-auto max-w-7xl px-6 pb-20 pt-8 md:px-10 md:pb-24">
-          <header className="sticky top-3 z-40 mb-16 flex items-center justify-between rounded-2xl border border-white/10 bg-[#0f172acc] px-5 py-4 backdrop-blur">
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Pantheon CRM</p>
-              <p className="text-sm text-slate-300">Built for high-performance teams</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Link href="/" className="text-2xl font-bold text-white">
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Pantheon
+              </span>
+            </Link>
+            <div className="hidden md:flex items-center gap-8">
+              <Link href="#features" className="text-white/70 hover:text-white transition">Features</Link>
+              <Link href="#pricing" className="text-white/70 hover:text-white transition">Pricing</Link>
+              <Link href="/login" className="text-white/70 hover:text-white transition">Login</Link>
+              <Link href="/signup">
+                <Button className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600">
+                  Try Free for 2 Weeks
+                </Button>
+              </Link>
             </div>
-            <button
-              type="button"
-              onClick={() => router.push("/portal")}
-              className="inline-flex items-center rounded-lg border border-cyan-300/40 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-300/10"
-            >
-              Open Portal
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </button>
-          </header>
-
-          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="relative">
-              <p className="mb-4 inline-flex rounded-full border border-emerald-300/40 bg-emerald-300/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-200">
-                14-Day Free Trial - No Card Required
-              </p>
-              <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-white md:text-6xl">
-                Know exactly what your team did today, what is next, and what closes this week.
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg text-slate-300">
-                Pantheon is not just a contact list. It is your pipeline command center, appointment engine, script library, and performance dashboard in one platform.
-              </p>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {trialIncludes.map((item) => (
-                  <div key={item} className="flex items-start rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100">
-                    <span className="mr-3 mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
-                      <Check className="h-3.5 w-3.5" />
-                    </span>
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-10 block">
-                <MeshGradientSVG />
-              </div>
-            </div>
-
-            <aside
-              ref={formRef}
-              className="rounded-3xl border border-cyan-300/20 bg-[#111a24]/90 p-6 shadow-[0_0_60px_rgba(34,211,238,0.07)] backdrop-blur md:p-8"
-            >
-              <h2 className="text-2xl font-semibold text-white">Start your trial now</h2>
-              <p className="mt-2 text-sm text-slate-300">Get full Pantheon access instantly. Trial end date: {trialEndDate}.</p>
-
-              <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="firstName" className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
-                      First Name
-                    </label>
-                    <input
-                      id="firstName"
-                      className="w-full rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300"
-                      placeholder="John"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="lastName" className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
-                      Last Name
-                    </label>
-                    <input
-                      id="lastName"
-                      className="w-full rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300"
-                      placeholder="Doe"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
-                    Work Email
-                  </label>
-                  <input
-                    id="email"
-                    className="w-full rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300"
-                    placeholder="john@company.com"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="company" className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
-                    Company
-                  </label>
-                  <input
-                    id="company"
-                    className="w-full rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300"
-                    placeholder="Acme Insurance"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                  />
-                </div>
-
-                {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-                {success ? <p className="text-sm text-emerald-300">{success}</p> : null}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isActivated}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-400 px-4 py-3 text-sm font-bold text-[#07203a] transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-80"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Activating...
-                    </>
-                  ) : isActivated ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Activated!
-                    </>
-                  ) : (
-                    <>
-                      Activate Free Trial
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <span>By starting, you can immediately explore all major product areas in the portal.</span>
-                <button
-                  type="button"
-                  onClick={() => router.push("/portal")}
-                  className="text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
-                >
-                  Already have access?
-                </button>
-              </div>
-            </aside>
           </div>
-        </section>
-      </div>
+        </div>
+      </nav>
 
-      <section className="mx-auto max-w-7xl px-6 pb-6 md:px-10">
-        <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-5 md:grid-cols-4">
-          {trustStats.map((stat) => (
-            <article key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-2xl font-semibold text-white">{stat.value}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.12em] text-slate-300">{stat.label}</p>
-            </article>
-          ))}
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-20 pb-32 px-4 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-40 right-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="inline-block mb-4 px-4 py-2 bg-white/10 border border-white/20 rounded-full">
+            <p className="text-sm text-cyan-400 font-semibold">🎁 New Users Get 2 Weeks Free</p>
+          </div>
+
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            Protect Today.<br />
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Grow Tomorrow.
+            </span>
+          </h1>
+
+          <p className="text-xl text-white/70 mb-12 max-w-2xl mx-auto leading-relaxed">
+            The all-in-one CRM platform built for insurance and financial services agents. Manage clients, track your pipeline, and close more deals with your entire team.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <Link href="/signup">
+              <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-lg h-14 px-8">
+                Start Your Free Trial <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </Link>
+            <Link href="#features">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 text-lg h-14 px-8">
+                Learn More
+              </Button>
+            </Link>
+          </div>
+
+          <p className="text-sm text-white/50">
+            ✓ No credit card required • ✓ 14-day free trial • ✓ Full feature access
+          </p>
+        </div>
+
+        {/* Hero Image Placeholder */}
+        <div className="mt-16 mx-auto max-w-5xl">
+          <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur overflow-hidden">
+            <div className="aspect-video bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 flex items-center justify-center">
+              <div className="text-center">
+                <Shield className="w-16 h-16 text-white/30 mx-auto mb-4" />
+                <p className="text-white/40">Dashboard Preview</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-10 md:px-10">
-        <h3 className="text-2xl font-semibold text-white md:text-3xl">What you are getting access to</h3>
-        <p className="mt-2 max-w-3xl text-slate-300">
-          The free trial includes the same core product experience your team would use daily after rollout.
-        </p>
+      {/* Features Section */}
+      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Everything You Need to Succeed
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+              Powerful features designed specifically for insurance and financial services professionals.
+            </p>
+          </div>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {coreFeatures.map((feature) => {
-            const Icon = feature.icon
-            return (
-              <article
-                key={feature.title}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:border-cyan-300/40 hover:bg-white/[0.06]"
-              >
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300">
-                  <Icon className="h-5 w-5" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => {
+              const Icon = feature.icon
+              return (
+                <div
+                  key={index}
+                  onMouseEnter={() => setHoveredCard(index)}
+                  onMouseLeave={() => setHoveredCard(null)}
+                  className="group relative p-8 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                >
+                  <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} p-2 mb-4`}>
+                      <Icon className="w-full h-full text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
+                    <p className="text-white/60">{feature.description}</p>
+                  </div>
                 </div>
-                <h4 className="mt-4 text-lg font-semibold text-white">{feature.title}</h4>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">{feature.description}</p>
-              </article>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:px-10">
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-cyan-400/20 via-emerald-400/10 to-amber-300/20 p-8 md:p-10">
-          <h3 className="text-3xl font-semibold text-white">Start now, evaluate fast, decide with confidence.</h3>
-          <p className="mt-3 max-w-2xl text-slate-200">
-            In 14 days, your team can test lead workflow, appointments, scripts, onboarding content, and performance reporting in one environment.
-          </p>
-          <button
-            type="button"
-            onClick={scrollToForm}
-            className="mt-6 inline-flex items-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#0f172a] transition hover:bg-slate-200"
-          >
-            Claim Your Free Trial
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </button>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/10 bg-[#0b0f14]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 text-sm text-slate-400 md:px-10">
-          <p className="inline-flex items-center">
-            <Rocket className="mr-2 h-4 w-4 text-cyan-300" />
-            Pantheon CRM
-          </p>
-          <p className="inline-flex items-center">
-            <Clock3 className="mr-2 h-4 w-4" />
-            © {new Date().getFullYear()} Pantheon. All rights reserved.
-          </p>
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-white/60 text-sm">
+            <p>&copy; 2026 Pantheon. All rights reserved.</p>
+            <p>Protect Today. Grow Tomorrow.</p>
+          </div>
         </div>
       </footer>
-    </main>
+    </div>
   )
 }
