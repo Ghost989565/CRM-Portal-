@@ -9,6 +9,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createOptionalClient } from "@/lib/supabase/client"
 
+function getFriendlyAuthError(err: unknown, fallback: string) {
+  if (err instanceof Error) {
+    const message = err.message || fallback
+    const normalized = message.toLowerCase()
+
+    if (normalized.includes("load failed") || normalized.includes("failed to fetch")) {
+      return "Unable to reach Supabase. Confirm NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify Production, then redeploy."
+    }
+    if (normalized.includes("invalid api key") || normalized.includes("api key")) {
+      return "Supabase key is invalid. Verify NEXT_PUBLIC_SUPABASE_ANON_KEY uses the anon key (role: anon)."
+    }
+    if (normalized.includes("redirect") && normalized.includes("allow")) {
+      return "Supabase redirect URL is blocked. In Supabase Auth URL Configuration, allow your site URL and reset/signup callback URLs."
+    }
+    return message
+  }
+
+  return fallback
+}
+
 export default function SignUpPage() {
   const router = useRouter()
   const [firstName, setFirstName] = useState("")
@@ -51,7 +71,7 @@ export default function SignUpPage() {
       if (signUpError) throw signUpError
       router.push("/auth/sign-up-success")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unable to create account")
+      setError(getFriendlyAuthError(err, "Unable to create account"))
     } finally {
       setIsLoading(false)
     }

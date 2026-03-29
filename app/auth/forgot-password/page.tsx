@@ -8,6 +8,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createOptionalClient } from "@/lib/supabase/client"
 
+function getFriendlyAuthError(err: unknown, fallback: string) {
+  if (err instanceof Error) {
+    const message = err.message || fallback
+    const normalized = message.toLowerCase()
+
+    if (normalized.includes("load failed") || normalized.includes("failed to fetch")) {
+      return "Unable to reach Supabase. Confirm NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify Production, then redeploy."
+    }
+    if (normalized.includes("invalid api key") || normalized.includes("api key")) {
+      return "Supabase key is invalid. Verify NEXT_PUBLIC_SUPABASE_ANON_KEY uses the anon key (role: anon)."
+    }
+    if (normalized.includes("redirect") && normalized.includes("allow")) {
+      return "Supabase redirect URL is blocked. In Supabase Auth URL Configuration, allow your site URL and /auth/reset-password."
+    }
+    return message
+  }
+
+  return fallback
+}
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +53,7 @@ export default function ForgotPasswordPage() {
       if (resetError) throw resetError
       setMessage("If an account exists for this email, we sent a reset link.")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unable to send reset email")
+      setError(getFriendlyAuthError(err, "Unable to send reset email"))
     } finally {
       setIsLoading(false)
     }

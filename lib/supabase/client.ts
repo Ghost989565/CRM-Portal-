@@ -1,10 +1,12 @@
 import { createBrowserClient, type SupabaseClient } from "@supabase/ssr"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
 
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl && supabaseAnonKey)
+  if (!supabaseUrl || !supabaseAnonKey) return false
+  if (!/^https?:\/\//.test(supabaseUrl)) return false
+  return true
 }
 
 export function createClient(): SupabaseClient {
