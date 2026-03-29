@@ -60,9 +60,9 @@ export default function HomePage() {
             </Link>
             <div className="hidden md:flex items-center gap-8">
               <Link href="#features" className="text-white/70 hover:text-white transition">Features</Link>
-              <Link href="#pricing" className="text-white/70 hover:text-white transition">Pricing</Link>
-              <Link href="/login" className="text-white/70 hover:text-white transition">Login</Link>
-              <Link href="/signup">
+              <Link href="#trial" className="text-white/70 hover:text-white transition">Pricing</Link>
+              <Link href="/auth/login" className="text-white/70 hover:text-white transition">Login</Link>
+              <Link href="/auth/sign-up">
                 <Button className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600">
                   Try Free for 2 Weeks
                 </Button>
@@ -96,7 +96,7 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <Link href="/signup">
+            <Link href="/auth/sign-up">
               <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-lg h-14 px-8">
                 Start Your Free Trial <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -116,10 +116,29 @@ export default function HomePage() {
         {/* Hero Image Placeholder */}
         <div className="mt-16 mx-auto max-w-5xl">
           <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur overflow-hidden">
-            <div className="aspect-video bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 flex items-center justify-center">
-              <div className="text-center">
-                <Shield className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                <p className="text-white/40">Dashboard Preview</p>
+            <div className="aspect-video bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 p-6">
+              <div className="grid grid-cols-3 gap-4 h-full">
+                <div className="col-span-2 rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                  <p className="text-xs text-white/50 mb-3">Pipeline Snapshot</p>
+                  <div className="space-y-2">
+                    <div className="h-3 rounded bg-cyan-500/40 w-4/5" />
+                    <div className="h-3 rounded bg-blue-500/40 w-3/5" />
+                    <div className="h-3 rounded bg-purple-500/40 w-2/3" />
+                  </div>
+                  <div className="mt-6 grid grid-cols-3 gap-2">
+                    <div className="rounded-md border border-white/10 bg-white/5 p-2 text-center text-xs text-white/70">New 24</div>
+                    <div className="rounded-md border border-white/10 bg-white/5 p-2 text-center text-xs text-white/70">Calls 12</div>
+                    <div className="rounded-md border border-white/10 bg-white/5 p-2 text-center text-xs text-white/70">Closed 6</div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                  <p className="text-xs text-white/50 mb-3">Today</p>
+                  <div className="space-y-2 text-xs text-white/70">
+                    <div className="rounded-md bg-white/5 px-2 py-1">10:00 Team Sync</div>
+                    <div className="rounded-md bg-white/5 px-2 py-1">12:30 Client Call</div>
+                    <div className="rounded-md bg-white/5 px-2 py-1">3:00 Follow-up</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -159,6 +178,24 @@ export default function HomePage() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Trial Section */}
+      <section id="trial" className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+          <p className="text-sm text-cyan-300 font-semibold">Simple Pricing</p>
+          <h3 className="mt-2 text-3xl font-bold text-white">2 Weeks Free. Then decide.</h3>
+          <p className="mt-3 text-white/70">
+            Get full feature access during your 14-day trial. No credit card required to start.
+          </p>
+          <div className="mt-6">
+            <Link href="/auth/sign-up">
+              <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600">
+                Activate Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
